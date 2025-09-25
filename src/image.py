@@ -1,19 +1,23 @@
 import pandas as pd
 import numpy as np
 
-import cv2
+from glob import glob
+
 import matplotlib.pylab as plt
 
-"""Il va falloir parcourir les images de data/.
-Une bibliothèque intéressante s'appelle glob, qui permet de
-facilement parcourir les images et range les filepath dans une liste"""
-filepath = [''] 
+from inpainting import *
 
-img_cv2 = cv2.imread(filepath)
-img_cv2_rgb = cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB)
+original_filepaths = glob("../data/*.original.webp")
+mask_filepaths = glob("../data/*.mask.webp")
+current_img=0
 
-def load_images_from_database():
-    pass
+image = None
+mask = None
+
+def load_image_from_database():
+    image = plt.imread(original_filepaths[current_img])
+    mask = plt.imread(mask_filepaths[current_img])
+    current_img+=1
 
 def display_image(image):
     fig, ax = plt.subplots(figsize= (10,10))
@@ -22,8 +26,5 @@ def display_image(image):
     plt.show()
 
 def save_image(image_name, image):
-    a = cv2.imwrite("output/"+image_name, image)
-    if not(a):
-        print("Error during writing.")
-
+    plt.imsave("output/"+image_name, image)
 
