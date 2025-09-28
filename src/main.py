@@ -5,7 +5,7 @@ from glob import glob
 
 import matplotlib.pylab as plt
 
-from inpainting import *
+from utils import *
 
 original_filepaths = glob("../data/*.original.webp")
 mask_filepaths = glob("../data/*.mask.webp")
@@ -28,3 +28,27 @@ def display_image(image):
 def save_image(image_name, image):
     plt.imsave("output/"+image_name, image)
 
+source_region = np.array([])
+target_region = np.array([])
+contour = np.array([])
+
+patches = np.array([])
+priority_patches = np.array([])
+
+def update_priority():
+    pass
+
+def update_regions():
+    pass
+
+def create_patches():
+    """Create patches for every pixel in the contour"""
+    pass
+
+def patch_to_use():
+    """Return the patch with highest priority"""
+    pass
+
+def best_match_sample():
+    """Returns the best match patch"""
+    pass
