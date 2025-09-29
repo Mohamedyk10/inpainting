@@ -53,12 +53,11 @@ def save_image(image_name, image):
 class Inpainting():
     def get_source_region(self):
         return image * (1 - mask)[..., None] 
-    def __init__(self, image, mask):
+    def __init__(self):
         self.image, self.mask = load_image_from_database()
         self.target_region = mask[..., None] #ou juste mask
         self.source_region = self.get_source_region()
         self.contour = get_contour(self.target_region)
-
         self.patches=np.array([])
         self.priority_patches = np.array([])
         
@@ -79,4 +78,5 @@ class Inpainting():
     def best_match_sample(self):
         """Returns the best match patch"""
         pass
-        
+
+Inpainting()
