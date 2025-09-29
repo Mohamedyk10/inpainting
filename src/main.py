@@ -23,6 +23,14 @@ def load_image_from_database():
     global mask, image, current_img
     image = plt.imread(original_filepaths[current_img])
     mask = plt.imread(mask_filepaths[current_img])
+
+    #Si le masque est RGB 
+    if mask.ndim == 3:
+        mask = mask[...,0]
+
+    #Pour le rendre binaire
+    mask = (mask > 0).astype(np.uint8)
+    
     if current_img<len(original_filepaths)-1:
         current_img+=1
     return image, mask
@@ -33,21 +41,21 @@ def display_image(image):
     ax.axis('off')
     plt.show()
 
-def targetify(masque):
-    return np.array([255 if image[x][y]>128 else 0 for x in range(len(masque)) for y in range(len(masque[0]))])
+'''def targetify(masque):
+    return image * mask[..., None] '''
 
 def get_contour(target):
-    return target-ndimage.binary_erosion(target)
+    return mask - ndimage.binary_erosion(mask).astype(np.uint8)
 
 def save_image(image_name, image):
     plt.imsave("output/"+image_name, image)
 
 class Inpainting():
     def get_source_region(self):
-        return np.array([self.image[x][y] if self.target_region[x][y]==0 else 0 for x in range(len(self.mask)) for y in range(len(self.mask[0]))])
+        return image * (1 - mask)[..., None] 
     def __init__(self, image, mask):
         self.image, self.mask = load_image_from_database()
-        self.target_region = targetify(self.mask)
+        self.target_region = mask[..., None] #ou juste mask
         self.source_region = self.get_source_region()
         self.contour = get_contour(self.target_region)
 
