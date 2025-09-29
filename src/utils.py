@@ -1,14 +1,11 @@
 
+import numpy as np
 """Tout ce qui nous sera utile pour le fichier principal"""
 
 def gradient(f):
     pass
 
-def ajouter_mask_rect():
-    
-    image = plt.imread(original_filepaths[current_img])
-    
-    
+def ajouter_mask_rect(image):
     if image.ndim == 3:
         hauteur, largeur, nb_chaines = image.shape
     else:

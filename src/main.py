@@ -32,15 +32,31 @@ def display_image(image):
     ax.axis('off')
     plt.show()
 
+def targetify(masque):
+    return np.array([255 if image[x][y]>128 else 0 for x in range(len(masque)) for y in range(len(masque[0]))])
+
+def get_source_region(masque):
+    return np.array([255 if image[x][y]<128 else 0 for x in range(len(masque)) for y in range(len(masque[0]))])
+
+def is_border(T,x,y):
+    if T[x,y]==0:
+        return False
+    elif (T[x-1,y]==0 or T[x-1, y-1]==0 or T[x+1, y]==0 or T[x+1,y+1]==0):
+        return False
+    else: return False
+
+def get_contour(target):
+    return np.array([255 if is_border(target, x,y) else 0 for x in range(len(target)) for y in range(len(target[0]))])
+
 def save_image(image_name, image):
     plt.imsave("output/"+image_name, image)
 
 class Inpainting():
     def __init__(self, image, mask):
         self.image, self.mask = load_image_from_database()
-        self.source_region = np.array([])
-        self.target_region = np.array([])
-        self.contour = np.array([])
+        self.source_region = get_source_region(self.mask)
+        self.target_region = targetify(self.mask)
+        self.contour = get_contour(self.target_region)
 
         self.patches=np.array([])
         self.priority_patches = np.array([])
