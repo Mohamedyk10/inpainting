@@ -3,6 +3,7 @@ import numpy as np
 
 from glob import glob
 
+from scipy import ndimage
 import matplotlib.pylab as plt
 
 from utils import *
@@ -35,27 +36,19 @@ def display_image(image):
 def targetify(masque):
     return np.array([255 if image[x][y]>128 else 0 for x in range(len(masque)) for y in range(len(masque[0]))])
 
-def get_source_region(masque):
-    return np.array([255 if image[x][y]<128 else 0 for x in range(len(masque)) for y in range(len(masque[0]))])
-
-def is_border(T,x,y):
-    if T[x,y]==0:
-        return False
-    elif (T[x-1,y]==0 or T[x-1, y-1]==0 or T[x+1, y]==0 or T[x+1,y+1]==0):
-        return False
-    else: return False
-
 def get_contour(target):
-    return np.array([255 if is_border(target, x,y) else 0 for x in range(len(target)) for y in range(len(target[0]))])
+    return target-ndimage.binary_erosion(target)
 
 def save_image(image_name, image):
     plt.imsave("output/"+image_name, image)
 
 class Inpainting():
+    def get_source_region(self):
+        return np.array([self.image[x][y] if self.target_region[x][y]==0 else 0 for x in range(len(self.mask)) for y in range(len(self.mask[0]))])
     def __init__(self, image, mask):
         self.image, self.mask = load_image_from_database()
-        self.source_region = get_source_region(self.mask)
         self.target_region = targetify(self.mask)
+        self.source_region = self.get_source_region()
         self.contour = get_contour(self.target_region)
 
         self.patches=np.array([])
