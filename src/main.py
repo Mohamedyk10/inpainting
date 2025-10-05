@@ -55,13 +55,21 @@ class Inpainting():
         return image * (1 - mask)[..., None] 
     def __init__(self):
         self.image, self.mask = load_image_from_database()
+        # Regions 
         self.target_region = mask[..., None] #ou juste mask
         self.source_region = self.get_source_region()
-        self.contour = get_contour(self.mask)
+        self.contour_region = get_contour(self.mask)
+        # Contour elements (array)
+        self.contour = np.argwhere(self.contour == 1) 
+
+        # Patches initialization
         self.patches={} # {(i,j): patch}
-        self.priority_patches = {(i,j): int(self.mask[i,j]==0) for i in range(len(self.mask)) for j in range(len(self.mask[1]))} #{(i,j) : priority}
-        self.confidence_values = {} #same
-        self.data_tems = {} #same
+        self.update_patches()
+
+        # values for patches
+        self.confidence_values = {(i,j): int(self.mask[i,j]==0) for i in range(len(self.mask)) for j in range(len(self.mask[1]))} #{(i,j) : priority}
+        self.data_terms = {} #same
+        self.priority_patches = {} #same
         print(self.mask.shape)
 
     def update_priority(self):
@@ -70,20 +78,19 @@ class Inpainting():
     def update_regions(self):
         pass
 
-    def create_patch(self, p, patch_size=9):
+    def update_patches(self, patch_size=9):
         """Create a patch for a pixel in the contour"""
         half = patch_size//2
-        x,y = p
-        return self.image[x-half:x+half, y-half:y+half]
+        self.patches={(i,j): self.source_region[i-half:i+half, j-half:j+half] for (i,j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
 
     def patch_to_use(self):
         """Return the patch with highest priority"""
         i = max(self.priority_patches,key=self.priority_patches.get)
         return self.patches[i]
 
-    def best_match_sample(self):
+    def best_match_sample(self, p): # p = (i,j)
         """Returns the best match patch"""
-        pass
+        return determine_closest_patch(self.patches, p)
 
     def display(self):
         display_image(self.source_region)
