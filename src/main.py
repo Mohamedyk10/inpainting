@@ -108,3 +108,12 @@ class Inpainting():
         display_image(self.source_region)
 output = Inpainting()
 output.display()
+
+
+#Pour tester:
+
+if __name__ == "__main__":
+    img = cv2.imread("images/example_original.png")
+    mask = cv2.imread("images/example_mask.png", 0)
+    result = inpaint(img, mask, patch_size=9)
+    cv2.imwrite("result.png", result)
