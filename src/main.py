@@ -44,7 +44,7 @@ def display_image(image):
 '''def targetify(masque):
     return image * mask[..., None] '''
 
-def get_contour(target):
+def get_contour(mask):
     return mask - ndimage.binary_erosion(mask).astype(np.uint8)
 
 def save_image(image_name, image):
@@ -57,26 +57,35 @@ class Inpainting():
         self.image, self.mask = load_image_from_database()
         self.target_region = mask[..., None] #ou juste mask
         self.source_region = self.get_source_region()
-        self.contour = get_contour(self.target_region)
-        self.patches=np.array([])
-        self.priority_patches = np.array([])
-        
+        self.contour = get_contour(self.mask)
+        self.patches={} # {(i,j): patch}
+        self.priority_patches = {(i,j): int(self.mask[i,j]==0) for i in range(len(self.mask)) for j in range(len(self.mask[1]))} #{(i,j) : priority}
+        self.confidence_values = {} #same
+        self.data_tems = {} #same
+        print(self.mask.shape)
+
     def update_priority(self):
         pass
 
     def update_regions(self):
         pass
 
-    def create_patches(self):
-        """Create patches for every pixel in the contour"""
-        pass
+    def create_patch(self, p, patch_size=9):
+        """Create a patch for a pixel in the contour"""
+        half = patch_size//2
+        x,y = p
+        return self.image[x-half:x+half, y-half:y+half]
 
     def patch_to_use(self):
         """Return the patch with highest priority"""
-        pass
+        i = max(self.priority_patches,key=self.priority_patches.get)
+        return self.patches[i]
 
     def best_match_sample(self):
         """Returns the best match patch"""
         pass
 
-Inpainting()
+    def display(self):
+        display_image(self.source_region)
+output = Inpainting()
+output.display()
