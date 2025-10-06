@@ -4,7 +4,7 @@ import os
 from glob import glob
 from scipy import ndimage
 import matplotlib.pyplot as plt
-from utils import *
+from alternative_utils import *
 
 # Rendre le chemin robuste
 data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
