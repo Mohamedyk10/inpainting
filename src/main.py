@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
-
 from glob import glob
-
 from scipy import ndimage
 import matplotlib.pylab as plt
-
 from utils import *
-
 import os
 
 # Rendre le chemin robuste quel que soit le dossier d'exécution
@@ -15,7 +11,7 @@ data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data')
 original_filepaths = glob(os.path.join(data_dir, '*original.webp'))
 mask_filepaths = glob(os.path.join(data_dir, '*mask.webp'))
 
-'''def targetify(masque):
+'''def targetify(mask):
     return image * mask[..., None] '''
 
 def get_contour(mask):
@@ -46,7 +42,7 @@ class Inpainting():
         self.mask = np.array([])
         self.load_image_from_database()
         # Regions 
-        self.target_region = self.mask[..., None] #ou juste mask
+        self.target_region = self.mask
         self.source_region = self.get_source_region()
         self.contour_region = get_contour(self.mask)
         # Contour elements (array)
@@ -63,6 +59,9 @@ class Inpainting():
         self.priority_patches = {} #same
         print(self.mask.shape)
 
+    def get_source_region(self):
+        return self.image * (1 - self.mask)[..., None] 
+    
     def calculate_priority(self):
         pass
 
@@ -106,3 +105,12 @@ class Inpainting():
 
 output = Inpainting()
 output.display()
+
+
+#Pour tester:
+
+if __name__ == "__main__":
+    img = cv2.imread("images/example_original.png")
+    mask = cv2.imread("images/example_mask.png", 0)
+    result = Inpainting(img, mask, patch_size=9)
+    cv2.imwrite("result.png", result)

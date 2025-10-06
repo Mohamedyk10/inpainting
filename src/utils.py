@@ -4,15 +4,39 @@ import cv2
 
 """Tout ce qui nous sera utile pour le fichier principal"""
 
+def extract_patch(image, center, patch_size):
+    "Retourne un patch centré sur un pixel (i,j)"
+    i, j = center
+    half = patch_size // 2
+    return image[i - half:i + half + 1, j - half:j + half + 1, :]
+
 def determine_closest_patch(patches : dict, p):
     # A modifier
     patch_p = patches[p]
     return np.argmin(np.linalg.norm(patch_p-patches[q]) for q in patches.keys if q != p)
 
-def gradient(patch):
+"""
+ou bien
+
+def determine_closest_patch(source_patches, target_patch):
+    "Trouve le patch le plus proche dans la source"
+    best_dist = float('inf')
+    best_patch = None
+
+    for key, src_patch in source_patches.items():
+        if src_patch.shape != target_patch.shape:
+            continue
+        dist = np.sum((src_patch - target_patch) ** 2)
+        if dist < best_dist:
+            best_dist = dist
+            best_patch = key
+    return best_patch
+"""
+
+def gradient(f):
     pass
 
-def ajouter_mask_rect(image):
+def add_mask_rect(image):
     if image.ndim == 3:
         hauteur, largeur, nb_chaines = image.shape
     else:
