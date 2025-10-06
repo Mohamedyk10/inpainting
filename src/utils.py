@@ -2,6 +2,12 @@
 import numpy as np
 """Tout ce qui nous sera utile pour le fichier principal"""
 
+def extract_patch(image, center, patch_size):
+    "Retourne un patch centré sur un pixel (i,j)"
+    i, j = center
+    half = patch_size // 2
+    return image[i - half:i + half + 1, j - half:j + half + 1, :]
+
 def determine_closest_patch(patches : dict, p):
     # A modifier
     patch_p = patches[p]
@@ -10,7 +16,7 @@ def determine_closest_patch(patches : dict, p):
 def gradient(f):
     pass
 
-def ajouter_mask_rect(image):
+def add_mask_rect(image):
     if image.ndim == 3:
         hauteur, largeur, nb_chaines = image.shape
     else:
