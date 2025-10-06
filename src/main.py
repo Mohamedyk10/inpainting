@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
-
 from glob import glob
-
 from scipy import ndimage
 import matplotlib.pylab as plt
-
 from utils import *
-
 import os
 
 # Rendre le chemin robuste quel que soit le dossier d'exécution
@@ -41,7 +37,7 @@ def display_image(image):
     ax.axis('off')
     plt.show()
 
-'''def targetify(masque):
+'''def targetify(mask):
     return image * mask[..., None] '''
 
 def get_contour(mask):
@@ -51,12 +47,11 @@ def save_image(image_name, image):
     plt.imsave("output/"+image_name, image)
 
 class Inpainting():
-    def get_source_region(self):
-        return image * (1 - mask)[..., None] 
+    
     def __init__(self):
         self.image, self.mask = load_image_from_database()
         # Regions 
-        self.target_region = mask[..., None] #ou juste mask
+        self.target_region = self.mask
         self.source_region = self.get_source_region()
         self.contour_region = get_contour(self.mask)
         # Contour elements (array)
@@ -73,6 +68,9 @@ class Inpainting():
         self.priority_patches = {} #same
         print(self.mask.shape)
 
+    def get_source_region(self):
+        return image * (1 - mask)[..., None] 
+    
     def calculate_priority(self):
         pass
 
