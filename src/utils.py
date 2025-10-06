@@ -1,5 +1,7 @@
 
 import numpy as np
+import cv2
+
 """Tout ce qui nous sera utile pour le fichier principal"""
 
 def determine_closest_patch(patches : dict, p):
@@ -7,7 +9,7 @@ def determine_closest_patch(patches : dict, p):
     patch_p = patches[p]
     return np.argmin(np.linalg.norm(patch_p-patches[q]) for q in patches.keys if q != p)
 
-def gradient(f):
+def gradient(patch):
     pass
 
 def ajouter_mask_rect(image):

@@ -14,32 +14,6 @@ import os
 data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
 original_filepaths = glob(os.path.join(data_dir, '*original.webp'))
 mask_filepaths = glob(os.path.join(data_dir, '*mask.webp'))
-current_img=0
-
-image = np.array([])
-mask = np.array([])
-
-def load_image_from_database():
-    global mask, image, current_img
-    image = plt.imread(original_filepaths[current_img])
-    mask = plt.imread(mask_filepaths[current_img])
-
-    #Si le masque est RGB 
-    if mask.ndim == 3:
-        mask = mask[...,0]
-
-    #Pour le rendre binaire
-    mask = (mask > 0).astype(np.uint8)
-    
-    if current_img<len(original_filepaths)-1:
-        current_img+=1
-    return image, mask
-
-def display_image(image):
-    fig, ax = plt.subplots(figsize= (10,10))
-    ax.imshow(image)
-    ax.axis('off')
-    plt.show()
 
 '''def targetify(masque):
     return image * mask[..., None] '''
@@ -47,16 +21,32 @@ def display_image(image):
 def get_contour(mask):
     return mask - ndimage.binary_erosion(mask).astype(np.uint8)
 
-def save_image(image_name, image):
-    plt.imsave("output/"+image_name, image)
-
 class Inpainting():
+    def load_image_from_database(self):
+        self.image = plt.imread(original_filepaths[self.current_img])
+        self.mask = plt.imread(mask_filepaths[self.current_img])
+
+        #Si le masque est RGB 
+        if self.mask.ndim == 3:
+            self.mask = self.mask[...,0]
+
+        #Pour le rendre binaire
+        self.mask = (self.mask > 0).astype(np.uint8)
+        
+        if self.current_img<len(original_filepaths)-1:
+            self.current_img+=1
+    
     def get_source_region(self):
-        return image * (1 - mask)[..., None] 
+        return self.image * (1 - self.mask)[..., None] 
+    
     def __init__(self):
-        self.image, self.mask = load_image_from_database()
+        # Dataset related variables
+        self.current_img=0
+        self.image = np.array([])
+        self.mask = np.array([])
+        self.load_image_from_database()
         # Regions 
-        self.target_region = mask[..., None] #ou juste mask
+        self.target_region = self.mask[..., None] #ou juste mask
         self.source_region = self.get_source_region()
         self.contour_region = get_contour(self.mask)
         # Contour elements (array)
@@ -104,7 +94,15 @@ class Inpainting():
                     # self.update_regions() ??????
         pass
 
+    """Functions about output"""
     def display(self):
-        display_image(self.source_region)
+        fig, ax = plt.subplots(figsize= (10,10))
+        ax.imshow(self.source_region)
+        ax.axis('off')
+        plt.show()
+    def save_image(self, image_name):
+        # At the end : output image = self.source_region
+        plt.imsave("output/"+image_name, self.source_region)
+
 output = Inpainting()
 output.display()
