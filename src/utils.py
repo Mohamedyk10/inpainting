@@ -4,16 +4,36 @@ import cv2
 
 """Tout ce qui nous sera utile pour le fichier principal"""
 
-def extract_patch(image, center, patch_size):
+""" def make_patch(p, source_region, patch_size=9):
+    half= patch_size//2
+    patch = np.zeros((patch_size, patch_size, 3))
+    for i in range(-half, +half+1):
+        for j in range(-half, +half+1):
+            patch[i+half, j+half]=source_region[(p[0]+i,p[1]+j)]
+    return patch """
+
+def make_patch(center, source_region, patch_size=9):
     "Retourne un patch centré sur un pixel (i,j)"
     i, j = center
     half = patch_size // 2
-    return image[i - half:i + half + 1, j - half:j + half + 1, :]
+    return source_region[i - half:i + half + 1, j - half:j + half + 1, :]
 
-def determine_closest_patch(patches : dict, p):
+def determine_closest_patch(mask, patches : dict, contour_patch, p):
     # A modifier
-    patch_p = patches[p]
-    return np.argmin(np.linalg.norm(patch_p-patches[q]) for q in patches.keys if q != p)
+    patch_p = contour_patch[p]; half = len(patch_p)//2
+    min_dist = float("inf")
+    min_index = 0,0
+    mask_patch = np.array([[mask[p[0]+i-half,p[1]+j-half] for i in range(len(patch_p))] for j in range(len(patch_p))])
+    existant_pixels = np.where(mask_patch==0)
+
+    patch_p_mini = patch_p[existant_pixels]
+    for q, patch_q in patches.items():
+        patch_q_mini = patch_q[existant_pixels]
+        dist = np.linalg.norm(patch_p_mini-patch_q_mini)
+        if dist<min_dist:
+            min_dist=dist
+            min_index=q
+    return min_index
 
 """
 ou bien
