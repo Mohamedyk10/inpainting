@@ -88,9 +88,8 @@ class Inpainting():
         """Create a patch for a pixel in the contour"""
         half = self.patch_size//2
         self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
-        source = [(int(p[0]), int(p[1])) for p in np.argwhere(self.target_region == 0)]
-        self.source_patches = {p: make_patch(p, self.source_region, self.patch_size) for p in source if p[0]-half >= 0 and p[0]+half < self.image.shape[0] and p[1]-half >= 0 and p[1]+half < self.image.shape[1] and np.all(self.target_region[p[0]-half:p[0]+half+1, p[1]-half:p[1]+half+1]==0 )}
-    
+        self.source_patches = {(i,j): make_patch((i,j), self.source_region, self.patch_size) for i in range(half, self.image.shape[0]-half) for j in range(half, self.image.shape[1]-half) if np.all(self.target_region[i-half:i+half+1, j-half:j+half+1]==0 )}
+
     def patch_to_use(self):
         """Return the key of the patch with highest priority"""
         return random.choice(list(self.contour_patches))
@@ -122,7 +121,7 @@ class Inpainting():
     """Main Function"""
     def inpaint(self):
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
-        while (not np.all(self.target_region == 0)) and num_iter<200:
+        while np.any(self.target_region==1) and num_iter<200:
             print("Iteration : " + str(num_iter))
             self.calculate_priority()
             p = self.patch_to_use()

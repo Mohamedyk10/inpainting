@@ -16,14 +16,14 @@ def make_patch(center, source_region, patch_size=9):
     "Retourne un patch centré sur un pixel (i,j)"
     i, j = center
     half = patch_size // 2
-    return source_region[i - half:i + half + 1, j - half:j + half + 1, :]
+    return source_region[i - half:i + half + 1, j - half:j + half + 1]
 
-def determine_closest_patch(mask, patches : dict, contour_patch, p):
+def determine_closest_patch(target_region, patches : dict, contour_patch, p):
     # A modifier
     patch_p = contour_patch[p]; half = len(patch_p)//2
     min_dist = float("inf")
     min_index = 0,0
-    mask_patch = np.array([[mask[p[0]+i-half,p[1]+j-half] for i in range(len(patch_p))] for j in range(len(patch_p))])
+    mask_patch = make_patch(p, target_region, len(patch_p))
     existant_pixels = np.where(mask_patch==0)
 
     patch_p_mini = patch_p[existant_pixels]
