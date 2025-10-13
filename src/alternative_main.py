@@ -1,31 +1,50 @@
 import numpy as np
 import cv2
 import os
-from glob import glob
 from scipy import ndimage
 import matplotlib.pyplot as plt
 from alternative_utils import *
 
-# Rendre le chemin robuste
-data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
-original_filepaths = glob(os.path.join(data_dir, '*original.webp'))
-mask_filepaths = glob(os.path.join(data_dir, '*mask.webp'))
-current_img = 0
+# -----------------------------------------------------------
+# 🔹 Chargement d'une image et d'un masque par nom de fichier
+# -----------------------------------------------------------
+def load_image_from_database(filename_original="6.original.webp", filename_mask="6.mask.webp"):
+    # Chemin absolu du dossier 'data' (voisin de 'src')
+    script_dir = os.path.dirname(__file__)
+    data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
 
+    # Construit les chemins complets
+    image_path = os.path.join(data_dir, filename_original)
+    mask_path  = os.path.join(data_dir, filename_mask)
 
-def load_image_from_database():
-    global mask, image, current_img
-    image = plt.imread(original_filepaths[current_img])
-    mask = plt.imread(mask_filepaths[current_img])
+    # Chargement
+    image = plt.imread(image_path).copy()  # ✅ .copy() pour rendre modifiable
+    mask  = plt.imread(mask_path)
 
+    # Si le masque est RGB → on garde un canal
     if mask.ndim == 3:
         mask = mask[..., 0]
 
+    # Binarisation
     mask = (mask > 0).astype(np.uint8)
-    if current_img < len(original_filepaths) - 1:
-        current_img += 1
+
+    print(f"✅ Image chargée : {image_path}")
+    print(f"✅ Masque chargé : {mask_path}")
     return image, mask
 
+
+# -----------------------------------------------------------
+# 🔹 Affichage
+# -----------------------------------------------------------
+def display_with_contour(image, mask, iteration):
+    contour = mask - ndimage.binary_erosion(mask).astype(np.uint8)
+    img_copy = image.copy()
+    img_copy[contour == 1] = [1, 0, 0]  # rouge (R=1, G=0, B=0)
+    plt.figure(figsize=(8,8))
+    plt.imshow(img_copy)
+    plt.title(f"Itération {iteration}")
+    plt.axis("off")
+    plt.show()
 
 def display_image(image, title="Image"):
     plt.figure(figsize=(8, 8))
@@ -35,13 +54,19 @@ def display_image(image, title="Image"):
     plt.show()
 
 
+# -----------------------------------------------------------
+# 🔹 Calcul du contour du masque
+# -----------------------------------------------------------
 def get_contour(mask):
     return mask - ndimage.binary_erosion(mask).astype(np.uint8)
 
 
+# -----------------------------------------------------------
+# 🔹 Classe principale d'Inpainting
+# -----------------------------------------------------------
 class Inpainting:
-    def __init__(self, patch_size=9):
-        self.image, self.mask = load_image_from_database()
+    def __init__(self, patch_size=9, filename_original="6.original.webp", filename_mask="6.mask.webp"):
+        self.image, self.mask = load_image_from_database(filename_original, filename_mask)
         self.patch_size = patch_size
         self.target_region = self.mask
         self.source_region = (1 - self.mask)[..., None] * self.image
@@ -68,14 +93,14 @@ class Inpainting:
         half = self.patch_size // 2
         i, j = target_center
 
-        # Copier uniquement les pixels manquants
+        # Copier uniquement les pixels manquants (mask = 1)
         for di in range(-half, half + 1):
             for dj in range(-half, half + 1):
                 y, x = i + di, j + dj
                 if 0 <= y < self.image.shape[0] and 0 <= x < self.image.shape[1]:
                     if self.mask[y, x] == 1:
                         self.image[y, x, :] = src_patch[di + half, dj + half, :]
-                        self.mask[y, x] = 0
+                        self.mask[y, x] = 0  # Pixel rempli
 
     def run(self):
         self.update_patches()
@@ -92,13 +117,24 @@ class Inpainting:
 
             iteration += 1
             if iteration % 5 == 0:
-                display_image(self.image, f"Iteration {iteration}")
+                #display_image(self.image, f"Iteration {iteration}")
+                display_with_contour(self.image, self.mask, iteration)
 
         display_image(self.image, "Inpainting final")
         return self.image
 
 
+# -----------------------------------------------------------
+# 🔹 Programme principal
+# -----------------------------------------------------------
 if __name__ == "__main__":
-    inpaint_process = Inpainting(patch_size=9)
+    inpaint_process = Inpainting(patch_size=9, filename_original="6.original.webp", filename_mask="6.mask.webp")
     result = inpaint_process.run()
-    cv2.imwrite("output/result.png", cv2.cvtColor((result * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+
+    # Sauvegarde du résultat
+    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "result.png")
+
+    cv2.imwrite(output_path, cv2.cvtColor((result * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+    print(f"💾 Résultat sauvegardé dans : {output_path}")
