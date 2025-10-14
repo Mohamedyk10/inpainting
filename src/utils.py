@@ -11,6 +11,14 @@ import cv2
         for j in range(-half, +half+1):
             patch[i+half, j+half]=source_region[(p[0]+i,p[1]+j)]
     return patch """
+# Calculate values
+def calculate_confidence(center, confidence_values, patch_size):
+    half = patch_size//2
+    confidences = [confidence_values[i-half+center[0], j-half+center[0]] for i in range(half) for j in range(half)]
+    return sum(confidences)/patch_size**2
+
+def calculate_dataterm(center):
+    pass
 
 def make_patch(center, source_region, patch_size=9):
     "Retourne un patch centré sur un pixel (i,j)"

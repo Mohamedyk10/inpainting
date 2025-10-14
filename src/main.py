@@ -121,7 +121,7 @@ class Inpainting():
     """Main Function"""
     def inpaint(self):
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
-        while np.any(self.target_region==1) and num_iter<200:
+        while np.any(self.target_region==1) and num_iter<500:
             print("Iteration : " + str(num_iter))
             self.calculate_priority()
             p = self.patch_to_use()
@@ -160,7 +160,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(patch_size=9, curr_im=len(original_filepaths)-3)
+    inpaint = Inpainting(patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
