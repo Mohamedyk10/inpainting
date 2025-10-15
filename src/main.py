@@ -88,7 +88,7 @@ class Inpainting():
         self.source_patches = {}
         self.contour_patches={} # {(i,j): patch}
         self.patch_size = 9
-        self.update_patches()
+        self.initialise_patch()
 
         # values for patches
         self.confidence_values = {(i,j): int(self.target_region[i,j]==0) for i in range(len(self.target_region)) for j in range(len(self.target_region[1]))} #{(i,j) : priority}
@@ -107,12 +107,21 @@ class Inpainting():
         self.contour_region = self.get_contour()
         self.contour = [(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)]
         pass
+    
+    def initialise_patch(self):
+        half = self.patch_size//2
+        self.source_patches = {(i,j): make_patch((i,j), self.source_region, self.patch_size) for i in range(half, self.image.shape[0]-half) for j in range(half, self.image.shape[1]-half) if np.all(self.target_region[i-half:i+half+1, j-half:j+half+1]==0 )}
+        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
 
-    def update_patches(self):
+    def update_patches(self, p):
         """Create a patch for a pixel in the contour"""
         half = self.patch_size//2
         self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
-        self.source_patches = {(i,j): make_patch((i,j), self.source_region, self.patch_size) for i in range(half, self.image.shape[0]-half) for j in range(half, self.image.shape[1]-half) if np.all(self.target_region[i-half:i+half+1, j-half:j+half+1]==0 )}
+        for i in range(max(half,p[0]-self.patch_size*3//2), max(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
+            for j in range(max(half,p[1]-self.patch_size*3//2), min(len(self.image[0])-half,p[1]+self.patch_size*3//2+1)):
+                target = make_patch((i,j), self.target_region, self.patch_size)
+                if np.all(target==0):
+                    self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
 
     def patch_to_use(self):
         """Return the key of the patch with highest priority"""
@@ -153,7 +162,7 @@ class Inpainting():
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
             self.update_values(p,patch_q)
             self.update_regions(p)
-            self.update_patches()
+            self.update_patches(p)
             num_iter+=1
         pass
 
