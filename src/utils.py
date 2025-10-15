@@ -89,3 +89,11 @@ masque = ajouter_mask_rect()
 plt.imshow(masque, cmap="gray")
 plt.show()
 '''
+
+def get_image_name(filename):
+    name = ""
+    for c in filename:
+        name += c
+        if c==".":
+            break
+    return name + "inpainted.webp"

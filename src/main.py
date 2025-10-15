@@ -21,19 +21,42 @@ class Inpainting():
     """A class that implements Exemplar-based inpainting method"""
 
     """Loading data"""
-    def load_image_from_database(self):
-        self.image = plt.imread(original_filepaths[self.current_img])
-        self.mask = plt.imread(mask_filepaths[self.current_img])
+    def fast_load_image_from_database(self, filename_original="6.original.webp", filename_mask="6.mask.webp"):
+        # Chemin absolu du dossier 'data' (voisin de 'src')
+        script_dir = os.path.dirname(__file__)
+        data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
 
-        #Si le masque est RGB 
+        # Construit les chemins complets
+        image_path = os.path.join(data_dir, filename_original)
+        mask_path  = os.path.join(data_dir, filename_mask)
+
+        # Chargement
+        self.image = plt.imread(image_path).copy()  # ✅ .copy() pour rendre modifiable
+        self.mask  = plt.imread(mask_path)
+
+        # Si le masque est RGB → on garde un canal
         if self.mask.ndim == 3:
-            self.mask = self.mask[...,0]
+            self.mask = self.mask[..., 0]
 
-        #Pour le rendre binaire
+        # Binarisation
         self.mask = (self.mask > 0).astype(np.uint8)
+
+        print(f"Image chargée : {image_path}")
+        print(f"Masque chargé : {mask_path}")
+    
+    # def load_image_from_database(self):
+    #     self.image = plt.imread(original_filepaths[self.current_img])
+    #     self.mask = plt.imread(mask_filepaths[self.current_img])
+
+    #     #Si le masque est RGB 
+    #     if self.mask.ndim == 3:
+    #         self.mask = self.mask[...,0]
+
+    #     #Pour le rendre binaire
+    #     self.mask = (self.mask > 0).astype(np.uint8)
         
-        if self.current_img<len(original_filepaths)-1:
-            self.current_img+=1
+    #     if self.current_img<len(original_filepaths)-1:
+    #         self.current_img+=1
     
     """Getters"""
     def get_contour(self):
@@ -43,12 +66,13 @@ class Inpainting():
     def get_source_region(self):
         return self.image * (1 - self.mask)[..., None] 
     
-    def __init__(self, patch_size=9, curr_im = 0):
+    def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0):
+        self.filename = image_filename
         # Dataset related variables
         self.current_img=curr_im
         self.image = np.array([])
         self.mask = np.array([])
-        self.load_image_from_database()
+        self.fast_load_image_from_database(image_filename, mask_filename)
 
         if self.image.dtype == np.uint8 or np.nanmax(self.image) > 1.0:
             self.image = self.image.astype(np.float32) / 255.0
@@ -134,15 +158,26 @@ class Inpainting():
         pass
 
     """Functions about output"""
-    def display(self, test=0):
+    def display(self, test=0, deb=0):
         if test:
             fig, axs = plt.subplots(1,4, figsize= (10,10))
             axs[0].imshow(self.image)
             axs[0].set_title("Original image"); axs[0].axis('off')
             axs[1].imshow(self.source_region)
             axs[1].set_title("Source Region"); axs[1].axis('off')
-            axs[2].imshow(self.target_region)
-            axs[2].set_title("Target Region"); axs[2].axis('off')
+            if deb:
+                axs[2].imshow(self.target_region)
+                axs[2].set_title("Target Region"); axs[2].axis('off')
+            else:
+                # Inpainting algorithm for opencv
+                img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
+                mask8 = (self.mask.astype(np.uint8) * 255)
+                t1 = time.time()
+                inpainted = cv2.inpaint(img8, mask8, 3, cv2.INPAINT_TELEA)
+                t2 = time.time()-t1
+                axs[2].imshow(inpainted)
+                axs[2].set_title("Inpaint (OpenCV)"); axs[2].axis('off')
+                print(f"Opencv2 inpainting duration : {t2//60}mn{t2/60-t2//60}sec")
             axs[3].imshow(self.mask)
             axs[3].set_title("Mask"); axs[3].axis('off')
             plt.tight_layout()
@@ -152,18 +187,23 @@ class Inpainting():
             axs.set_title("Source Region"); axs.axis('off')
         plt.show()
 
-    def save_image(self, image_name):
+    def save_image(self):
         # At the end : output image = self.source_region
+        image_name = get_image_name(self.filename)
         plt.imsave("output/"+image_name, self.source_region)
 
 #Pour tester:
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(patch_size=9, curr_im=3)
+    inpaint = Inpainting(image_filename='65.original.webp', mask_filename='65.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
     sec = (((delta_t/60-min)*60)*100)//100
     print("Algorithm duration : "+str(min)+"mn"+str(sec)+"sec")
     inpaint.display(test=1)
+    answer = input("Would you like to save the image ? (y/n)")
+    if answer.lower()=="y":
+        inpaint.save_image()
+    
