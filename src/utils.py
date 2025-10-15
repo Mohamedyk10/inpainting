@@ -29,19 +29,16 @@ def make_patch(center, source_region, patch_size=9):
 def determine_closest_patch(target_region, patches : dict, contour_patch, p):
     # A modifier
     patch_p = contour_patch[p]; half = len(patch_p)//2
-    min_dist = float("inf")
-    min_index = 0,0
     mask_patch = make_patch(p, target_region, len(patch_p))
     existant_pixels = np.where(mask_patch==0)
 
-    patch_p_mini = patch_p[existant_pixels]
-    for q, patch_q in patches.items():
-        patch_q_mini = patch_q[existant_pixels]
-        dist = np.linalg.norm(patch_p_mini-patch_q_mini)
-        if dist<min_dist:
-            min_dist=dist
-            min_index=q
-    return min_index
+    patch_p_mini = patch_p[existant_pixels].flatten()
+
+    patch_matrix = np.array([patches[q][existant_pixels].flatten() for q in patches])
+    distances = np.linalg.norm(patch_matrix-patch_p_mini, axis=1)
+    min_index = np.argmin(distances)
+    keys_patches = list(patches.keys())
+    return keys_patches[min_index]
 
 """
 ou bien

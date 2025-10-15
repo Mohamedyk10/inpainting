@@ -2,8 +2,8 @@
 
 ✅ : Done, ❌ : Not Yet
 
-- ❌ : À partir du masque, définir les 3 régions de l'image (source region, target region et contour).
+- ✅ : À partir du masque, définir les 3 régions de l'image (source region, target region et contour).
 - ❌ : Implémenter les outils mathématiques nécessaires dans `utils.py`.
 - ❌ : Implémenter un algorithme de sélection de patchs fonctionnel.
 - ❌ : Implémenter un calcul fonctionnel de la priorité.
-- ❌ : Mettre à jour les 3 régions de l'image.
+- ✅ : Mettre à jour les 3 régions de l'image.
