@@ -3,6 +3,7 @@ import numpy as np
 from glob import glob
 from scipy import ndimage
 import matplotlib.pylab as plt
+from matplotlib.animation import FuncAnimation
 from utils import *
 import os
 import random
@@ -94,7 +95,11 @@ class Inpainting():
         self.confidence_values = {(i,j): int(self.target_region[i,j]==0) for i in range(len(self.target_region)) for j in range(len(self.target_region[1]))} #{(i,j) : priority}
         self.data_terms = {} #same
         self.priority_patches = {} #same
-    
+
+        # Animation
+        self.frames = [self.source_region.copy()]
+        self.animation= None
+        self.anim_fig = None
     def calculate_priority(self):
         pass
 
@@ -152,9 +157,11 @@ class Inpainting():
 
 
     """Main Function"""
-    def inpaint(self):
+    def inpaint(self, animate = True):
+        if animate:
+            self.generateAnimation()
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
-        while np.any(self.target_region==1) and num_iter<500:
+        while np.any(self.target_region==1) and num_iter<3000:
             print("Iteration : " + str(num_iter))
             self.calculate_priority()
             p = self.patch_to_use()
@@ -164,16 +171,33 @@ class Inpainting():
             self.update_regions(p)
             self.update_patches(p)
             num_iter+=1
+            if animate:
+                self.frames.append(self.source_region.copy())
+        if animate:
+            self.animate()
         pass
-
+    
     """Functions about output"""
+    def generateAnimation(self):
+        fig, ax = plt.subplots(figsize=(10,10))
+        im=ax.imshow(self.source_region)
+        self.anim_fig = fig
+        self.animation = im 
+    def updateAnimation(self, frame):
+        self.animation.set_array(self.frames[frame])
+        return [self.animation]
+
+    def animate(self):
+        ani = FuncAnimation(self.anim_fig, self.updateAnimation, frames=len(self.frames), interval=50, blit=True)
+        plt.show()
+
     def display(self, test=0, deb=0):
         if test:
             fig, axs = plt.subplots(1,4, figsize= (10,10))
             axs[0].imshow(self.image)
             axs[0].set_title("Original image"); axs[0].axis('off')
             axs[1].imshow(self.source_region)
-            axs[1].set_title("Source Region"); axs[1].axis('off')
+            axs[1].set_title("Our algorithm"); axs[1].axis('off')
             if deb:
                 axs[2].imshow(self.target_region)
                 axs[2].set_title("Target Region"); axs[2].axis('off')
@@ -215,4 +239,4 @@ if __name__ == "__main__":
     answer = input("Would you like to save the image ? (y/n)")
     if answer.lower()=="y":
         inpaint.save_image()
-    
+
