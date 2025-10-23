@@ -5,12 +5,12 @@ import os
 # --- PARAMÈTRES DE VOTRE IMAGE ---
 HAUTEUR = 280  # Nombre de lignes
 LARGEUR = 800  # Nombre de colonnes
-NOM_FICHIER_MASQUE = "kanizsa_triangle.mask.webp"
+NOM_FICHIER_MASQUE = "entete-textures.mask.webp"
 
 # --- DÉFINITION DE LA ZONE À MASQUER (EN PIXELS) ---
 # Masque la zone centrale : de la ligne 80 à 200 et de la colonne 300 à 500.
-Y1, Y2 = 35,52 # Lignes (Hauteur)
-X1, X2 = 91, 134  # Colonnes (Largeur)
+Y1, Y2 = 21, 100  # Lignes (Hauteur)
+X1, X2 = 420, 580  # Colonnes (Largeur)
 
 # 1. Création du masque binaire (tout à zéro initialement)
 masque = np.zeros((HAUTEUR, LARGEUR), dtype=np.uint8)

@@ -13,9 +13,29 @@ import cv2
     return patch """
 # Calculate values
 def calculate_confidence(center, confidence_values, patch_size):
-    half = patch_size//2
-    confidences = [confidence_values[i-half+center[0], j-half+center[0]] for i in range(half) for j in range(half)]
-    return sum(confidences)/patch_size**2
+    """
+    Calcule le terme de confiance C(p) pour un patch centré sur 'center'.
+    C(p) = Somme des C(q) dans le patch / (taille du patch)²
+    """
+    i, j = center
+    half = patch_size // 2
+    
+    # 1. Extraire la zone de confiance correspondant au patch
+    #    La variable 'confidence_values' est un dictionnaire {(i,j): float}
+    
+    total_confidence = 0.0
+    
+    # Parcourir les coordonnées du patch
+    for row in range(i - half, i + half + 1):
+        for col in range(j - half, j + half + 1):
+            # S'assurer que les coordonnées sont valides (dans les limites de l'image)
+            if (row, col) in confidence_values:
+                total_confidence += confidence_values[(row, col)]
+            # Note : on pourrait ajouter une gestion des bords si (row, col) sort des limites, 
+            # mais nous supposons que les centres de patchs sont initialisés correctement.
+
+    # 2. Diviser par la surface totale du patch
+    return total_confidence / (patch_size ** 2)
 
 def calculate_dataterm(center):
     pass

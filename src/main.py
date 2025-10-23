@@ -22,7 +22,7 @@ class Inpainting():
     """A class that implements Exemplar-based inpainting method"""
 
     """Loading data"""
-    def fast_load_image_from_database(self, filename_original="entete-textures.jpg", filename_mask="entete-textures.mask.webp"):
+    def fast_load_image_from_database(self, filename_original="kanizsa_triangle.png", filename_mask="kanizsa_triangle.mask.webp"):
         # Chemin absolu du dossier 'data' (voisin de 'src')
         script_dir = os.path.dirname(__file__)
         data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
@@ -229,7 +229,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(image_filename='kanizsa_triangle.jpg', mask_filename='kanizsa_triangle.mask.webp', patch_size=9, curr_im=3)
+    inpaint = Inpainting(image_filename='kanizsa_triangle.png', mask_filename='kanizsa_triangle.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60

@@ -101,7 +101,18 @@ class Inpainting():
         self.animation= None
         self.anim_fig = None
     def calculate_priority(self):
-        pass
+        """Calcule la priorité P(p) pour chaque patch de contour, en utilisant P(p) = C(p) * 1.0."""
+    
+        self.priority_patches = {} 
+        
+        for p in self.contour:
+            # 1. Calculer C(p)
+            confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
+            
+            # 2. Assignation de la priorité (P(p) = C(p) * D(p) où D(p) = 1.0)
+            self.priority_patches[p] = confidence_term # P(p) = C(p)
+            
+        # print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
 
     def update_regions(self, p):
         x,y = p
@@ -129,31 +140,48 @@ class Inpainting():
                     self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
 
     def patch_to_use(self):
-        """Return the key of the patch with highest priority"""
-        return random.choice(list(self.contour_patches))
-        i = max(self.priority_patches,key=self.priority_patches.get)
-        return i
+        """Retourne la clé du patch avec la priorité P(p) la plus élevée (max(C(p)))."""
+    
+        if not self.priority_patches:
+        # Cas de secours si le contour est vide (ne devrait pas arriver si le trou existe)
+            if self.contour:
+                 return random.choice(self.contour)
+            raise IndexError("Contour vide, l'inpainting est terminé ou un problème est survenu.")
+        
+    # Sélectionne la clé (coordonnée) ayant la valeur (priorité) maximale
+        p_max = max(self.priority_patches, key=self.priority_patches.get)
+        return p_max
 
     def best_match_sample(self, p): # p = (i,j)
         """Returns the best match patch"""
         return determine_closest_patch(self.target_region, self.source_patches, self.contour_patches, p)
 
     def update_values(self,p,patch_q):
-        half = self.patch_size//2
+        """Met à jour les valeurs de pixel du patch (p) et la confiance des pixels remplis."""
+    
+        half = self.patch_size // 2
         i0, i1 = p[0] - half, p[0] + half + 1
         j0, j1 = p[1] - half, p[1] + half + 1
-        target_values = self.target_region[i0:i1,j0:j1].copy()
-        unknown_pixels = (target_values==1)
+        
+        # 1. Mise à jour des valeurs de pixel du patch p
+        target_patch_mask = self.target_region[i0:i1, j0:j1]
+        unknown_pixels_in_patch = (target_patch_mask == 1)
+        
         new_patch_val = self.contour_patches[p].copy()
-        new_patch_val[unknown_pixels]=patch_q[unknown_pixels]
-        #self.contour_patches[p] = np.array([[self.source_patches[q][i,j] if self.mask[i,j] else self.contour_patches[p][i,j] for i in range(self.patch_size)] for j in range(len(self.patch_size))])
-        self.contour_patches[p]=new_patch_val
-        # Je sais pas si le code est idéal
-        # for i in range(len(self.contour_patches[p])):
-        #     for j in range(len(self.source_patches[q])):
-        #         if self.mask[i,j]:
-        #             self.confidence_values[i,j]=self.confidence_values[q[0]+i-1, q[1]+j-1]
-        pass
+        new_patch_val[unknown_pixels_in_patch] = patch_q[unknown_pixels_in_patch]
+        self.contour_patches[p] = new_patch_val
+        
+        # 2. MISE À JOUR DE LA CONFIANCE
+        
+        # Le terme de confiance C(p) est la priorité P(p) que nous venons d'utiliser (car D(p)=1)
+        confidence_to_propagate = self.priority_patches[p] 
+        
+        # Mettre à jour la confiance de chaque pixel qui vient d'être rempli
+        for i in range(i0, i1):
+            for j in range(j0, j1):
+                # Si le pixel était inconnu (dans le trou/masque)
+                if self.target_region[i, j] == 1: 
+                    self.confidence_values[(i, j)] = confidence_to_propagate # C(q) <- C(p)
 
 
     """Main Function"""
@@ -192,6 +220,16 @@ class Inpainting():
         plt.show()
 
     def display(self, test=0, deb=0):
+        img8 = (self.image * 255).astype(np.uint8)
+
+        if img8.shape[2] == 4:
+            img8 = img8[..., :3]
+
+        mask8 = (self.mask * 255).astype(np.uint8)
+
+        if mask8.ndim == 3 and mask8.shape[2] == 1:
+            mask8 = mask8.squeeze()
+
         if test:
             fig, axs = plt.subplots(1,4, figsize= (10,10))
             axs[0].imshow(self.image)
@@ -203,8 +241,8 @@ class Inpainting():
                 axs[2].set_title("Target Region"); axs[2].axis('off')
             else:
                 # Inpainting algorithm for opencv
-                img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
-                mask8 = (self.mask.astype(np.uint8) * 255)
+                '''img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
+                mask8 = (self.mask.astype(np.uint8) * 255)''' # NE PAS RE-CONVERTIR ! Nous utilisons img8 et mask8 du début de la méthode.
                 t1 = time.time()
                 inpainted = cv2.inpaint(img8, mask8, 3, cv2.INPAINT_TELEA)
                 t2 = time.time()-t1
@@ -229,7 +267,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(image_filename='65.original.webp', mask_filename='65.mask.webp', patch_size=9, curr_im=3)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
