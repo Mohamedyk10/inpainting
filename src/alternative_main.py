@@ -4,7 +4,7 @@ from glob import glob
 from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
-from utils import *
+from alternative_utils import *
 import os
 import random
 import time
@@ -100,19 +100,25 @@ class Inpainting():
         self.frames = [self.source_region.copy()]
         self.animation= None
         self.anim_fig = None
-    def calculate_priority(self):
-        """Calcule la priorité P(p) pour chaque patch de contour, en utilisant P(p) = C(p) * 1.0."""
     
+    def calculate_priority(self):
+        """Calcule la priorité P(p) = C(p) * D(p) pour chaque patch de contour."""
+        
         self.priority_patches = {} 
         
         for p in self.contour:
-            # 1. Calculer C(p)
+            # 1. Calculer le Terme de Confiance C(p)
+            # Note : calculate_confidence est importé de utils.py
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             
-            # 2. Assignation de la priorité (P(p) = C(p) * D(p) où D(p) = 1.0)
-            self.priority_patches[p] = confidence_term # P(p) = C(p)
+            # 2. Calculer le Terme de Données D(p)
+            # Nous passons self.source_region (image masquée) et self.target_region (masque binaire)
+            data_term = calculate_dataterm(p, self.source_region, self.target_region) 
             
-        # print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
+            # 3. Calcul de la Priorité P(p) = C(p) * D(p)
+            self.priority_patches[p] = confidence_term * data_term
+            
+        print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
 
     def update_regions(self, p):
         x,y = p
@@ -172,16 +178,33 @@ class Inpainting():
         self.contour_patches[p] = new_patch_val
         
         # 2. MISE À JOUR DE LA CONFIANCE
+
+        # Récupérer la priorité totale P(p)
+        priority = self.priority_patches[p]
         
-        # Le terme de confiance C(p) est la priorité P(p) que nous venons d'utiliser (car D(p)=1)
-        confidence_to_propagate = self.priority_patches[p] 
+        # ⚠️ Correction : Pour propager C(p), nous devons diviser P(p) par D(p).
+        # Nous devons donc recalculer D(p) ou le stocker, mais la solution la plus simple
+        # est de considérer que si P(p) a été calculé, le terme D(p) était supérieur à 0.
         
+        # Pour récupérer D(p), nous devons le recalculer ici ou le stocker.
+        # Recalculons-le de manière optimisée (assumant que vous avez stocké la fonction D(p) quelque part)
+        # Dans l'implémentation la plus simple, nous supposons que D(p) est la dernière valeur calculée.
+        
+        # Recalculons D(p) pour la division :
+        data_term = calculate_dataterm(p, self.source_region, self.target_region) 
+
+        if data_term > 0:
+            # C(p) = P(p) / D(p)
+            confidence_to_propagate = priority / data_term 
+        else:
+            # Si D(p) est 0 (pas de structure ou bord du masque), la confiance ne change pas ou est P(p) si P(p) > 0
+            confidence_to_propagate = priority # (Si D(p)=0, P(p) est déjà 0, donc C(p)=0)
+            
         # Mettre à jour la confiance de chaque pixel qui vient d'être rempli
         for i in range(i0, i1):
             for j in range(j0, j1):
-                # Si le pixel était inconnu (dans le trou/masque)
                 if self.target_region[i, j] == 1: 
-                    self.confidence_values[(i, j)] = confidence_to_propagate # C(q) <- C(p)
+                    self.confidence_values[(i, j)] = confidence_to_propagate
 
 
     """Main Function"""

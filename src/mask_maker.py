@@ -10,7 +10,7 @@ NOM_FICHIER_MASQUE = "entete-textures.mask.webp"
 # --- DÉFINITION DE LA ZONE À MASQUER (EN PIXELS) ---
 # Masque la zone centrale : de la ligne 80 à 200 et de la colonne 300 à 500.
 Y1, Y2 = 21, 100  # Lignes (Hauteur)
-X1, X2 = 420, 580  # Colonnes (Largeur)
+X1, X2 = 20, 530  # Colonnes (Largeur)
 
 # 1. Création du masque binaire (tout à zéro initialement)
 masque = np.zeros((HAUTEUR, LARGEUR), dtype=np.uint8)
