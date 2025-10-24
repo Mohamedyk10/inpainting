@@ -107,15 +107,11 @@ class Inpainting():
         self.priority_patches = {} 
         
         for p in self.contour:
-            # 1. Calculer le Terme de Confiance C(p)
-            # Note : calculate_confidence est importé de utils.py
+
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             
-            # 2. Calculer le Terme de Données D(p)
-            # Nous passons self.source_region (image masquée) et self.target_region (masque binaire)
             data_term = calculate_dataterm(p, self.source_region, self.target_region) 
             
-            # 3. Calcul de la Priorité P(p) = C(p) * D(p)
             self.priority_patches[p] = confidence_term * data_term
             
         print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
@@ -178,27 +174,18 @@ class Inpainting():
         self.contour_patches[p] = new_patch_val
         
         # 2. MISE À JOUR DE LA CONFIANCE
-
-        # Récupérer la priorité totale P(p)
+ 
         priority = self.priority_patches[p]
         
-        # ⚠️ Correction : Pour propager C(p), nous devons diviser P(p) par D(p).
-        # Nous devons donc recalculer D(p) ou le stocker, mais la solution la plus simple
-        # est de considérer que si P(p) a été calculé, le terme D(p) était supérieur à 0.
-        
-        # Pour récupérer D(p), nous devons le recalculer ici ou le stocker.
-        # Recalculons-le de manière optimisée (assumant que vous avez stocké la fonction D(p) quelque part)
-        # Dans l'implémentation la plus simple, nous supposons que D(p) est la dernière valeur calculée.
-        
-        # Recalculons D(p) pour la division :
+        # Recalcul de D(p)
         data_term = calculate_dataterm(p, self.source_region, self.target_region) 
 
         if data_term > 0:
-            # C(p) = P(p) / D(p)
+
             confidence_to_propagate = priority / data_term 
         else:
-            # Si D(p) est 0 (pas de structure ou bord du masque), la confiance ne change pas ou est P(p) si P(p) > 0
-            confidence_to_propagate = priority # (Si D(p)=0, P(p) est déjà 0, donc C(p)=0)
+        
+            confidence_to_propagate = priority 
             
         # Mettre à jour la confiance de chaque pixel qui vient d'être rempli
         for i in range(i0, i1):
@@ -265,7 +252,7 @@ class Inpainting():
             else:
                 # Inpainting algorithm for opencv
                 '''img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
-                mask8 = (self.mask.astype(np.uint8) * 255)''' # NE PAS RE-CONVERTIR ! Nous utilisons img8 et mask8 du début de la méthode.
+                mask8 = (self.mask.astype(np.uint8) * 255)''' # NE PAS RE-CONVERTIR ! Sinn des fois il y a erreur de channel
                 t1 = time.time()
                 inpainted = cv2.inpaint(img8, mask8, 3, cv2.INPAINT_TELEA)
                 t2 = time.time()-t1
@@ -290,7 +277,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3)
+    inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
