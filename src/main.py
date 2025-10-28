@@ -4,7 +4,7 @@ from glob import glob
 from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
-from utils import *
+from alternative_utils import *
 import os
 import random
 import time
@@ -22,18 +22,21 @@ class Inpainting():
     """A class that implements Exemplar-based inpainting method"""
 
     """Loading data"""
-    def fast_load_image_from_database(self, filename_original="kanizsa_triangle.png", filename_mask="kanizsa_triangle.mask.webp"):
+    def fast_load_image_from_database(self, filename_original="entete-textures.jpg", filename_mask="entete-textures.mask.webp", create_mask=0):
         # Chemin absolu du dossier 'data' (voisin de 'src')
         script_dir = os.path.dirname(__file__)
         data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
 
-        # Construit les chemins complets
+        # Chargement de l'image
         image_path = os.path.join(data_dir, filename_original)
-        mask_path  = os.path.join(data_dir, filename_mask)
-
-        # Chargement
         self.image = plt.imread(image_path).copy()  # ✅ .copy() pour rendre modifiable
-        self.mask  = plt.imread(mask_path)
+
+        # Chargement du masque
+        if create_mask:
+            self.mask = add_mask_rect(image=self.image)
+        else:
+            mask_path  = os.path.join(data_dir, filename_mask)
+            self.mask  = plt.imread(mask_path)
 
         # Si le masque est RGB → on garde un canal
         if self.mask.ndim == 3:
@@ -42,8 +45,8 @@ class Inpainting():
         # Binarisation
         self.mask = (self.mask > 0).astype(np.uint8)
 
-        print(f"Image chargée : {image_path}")
-        print(f"Masque chargé : {mask_path}")
+        print(f"Image chargée : {filename_original}")
+        print(f"Masque chargé")
     
     # def load_image_from_database(self):
     #     self.image = plt.imread(original_filepaths[self.current_img])
@@ -67,13 +70,13 @@ class Inpainting():
     def get_source_region(self):
         return self.image * (1 - self.mask)[..., None] 
     
-    def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0):
+    def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0, create_mask=0):
         self.filename = image_filename
         # Dataset related variables
         self.current_img=curr_im
         self.image = np.array([])
         self.mask = np.array([])
-        self.fast_load_image_from_database(image_filename, mask_filename)
+        self.fast_load_image_from_database(image_filename, mask_filename, create_mask)
 
         if self.image.dtype == np.uint8 or np.nanmax(self.image) > 1.0:
             self.image = self.image.astype(np.float32) / 255.0
@@ -100,8 +103,24 @@ class Inpainting():
         self.frames = [self.source_region.copy()]
         self.animation= None
         self.anim_fig = None
-    def calculate_priority(self):
-        pass
+    
+    def calculate_priority(self, usePatch=True):
+        """Calcule la priorité P(p) = C(p) * D(p) pour chaque patch de contour."""
+        
+        self.priority_patches = {} 
+        
+        for p in self.contour:
+
+            confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
+            patch_p = make_patch(p, self.source_region, self.patch_size)
+            if usePatch:
+                data_term = calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+            else:
+                data_term = calculate_dataterm(p, self.source_region, self.target_region) 
+            
+            self.priority_patches[p] = confidence_term * data_term
+            
+        print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
 
     def update_regions(self, p):
         x,y = p
@@ -122,55 +141,84 @@ class Inpainting():
         """Create a patch for a pixel in the contour"""
         half = self.patch_size//2
         self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
-        for i in range(max(half,p[0]-self.patch_size*3//2), max(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
+        for i in range(max(half,p[0]-self.patch_size*3//2), min(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
             for j in range(max(half,p[1]-self.patch_size*3//2), min(len(self.image[0])-half,p[1]+self.patch_size*3//2+1)):
                 target = make_patch((i,j), self.target_region, self.patch_size)
                 if np.all(target==0):
                     self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
 
     def patch_to_use(self):
-        """Return the key of the patch with highest priority"""
-        return random.choice(list(self.contour_patches))
-        i = max(self.priority_patches,key=self.priority_patches.get)
-        return i
+        """Retourne la clé du patch avec la priorité P(p) la plus élevée (max(C(p)))."""
+    
+        if not self.priority_patches or all(v == 0 for v in self.priority_patches.values()):
+        # Cas de secours si le contour est vide (ne devrait pas arriver si le trou existe)
+            if self.contour:
+                 return random.choice(self.contour)
+            raise IndexError("Contour vide, l'inpainting est terminé ou un problème est survenu.")
+        
+    # Sélectionne la clé (coordonnée) ayant la valeur (priorité) maximale
+        p_max = max(self.priority_patches, key=self.priority_patches.get)
+        return p_max
 
     def best_match_sample(self, p): # p = (i,j)
         """Returns the best match patch"""
         return determine_closest_patch(self.target_region, self.source_patches, self.contour_patches, p)
 
-    def update_values(self,p,patch_q):
-        half = self.patch_size//2
+    def update_values(self,p,patch_q, usePatch=True):
+        """Met à jour les valeurs de pixel du patch (p) et la confiance des pixels remplis."""
+    
+        half = self.patch_size // 2
         i0, i1 = p[0] - half, p[0] + half + 1
         j0, j1 = p[1] - half, p[1] + half + 1
-        target_values = self.target_region[i0:i1,j0:j1].copy()
-        unknown_pixels = (target_values==1)
+        
+        # 1. Mise à jour des valeurs de pixel du patch p
+        target_patch_mask = self.target_region[i0:i1, j0:j1]
+        unknown_pixels_in_patch = (target_patch_mask == 1)
+        
         new_patch_val = self.contour_patches[p].copy()
-        new_patch_val[unknown_pixels]=patch_q[unknown_pixels]
-        #self.contour_patches[p] = np.array([[self.source_patches[q][i,j] if self.mask[i,j] else self.contour_patches[p][i,j] for i in range(self.patch_size)] for j in range(len(self.patch_size))])
-        self.contour_patches[p]=new_patch_val
-        # Je sais pas si le code est idéal
-        # for i in range(len(self.contour_patches[p])):
-        #     for j in range(len(self.source_patches[q])):
-        #         if self.mask[i,j]:
-        #             self.confidence_values[i,j]=self.confidence_values[q[0]+i-1, q[1]+j-1]
-        pass
+        new_patch_val[unknown_pixels_in_patch] = patch_q[unknown_pixels_in_patch]
+        self.contour_patches[p] = new_patch_val
+        
+        # 2. MISE À JOUR DE LA CONFIANCE
+ 
+        priority = self.priority_patches[p]
+        
+        # Recalcul de D(p)
+        patch_p = make_patch(p, self.source_region, self.patch_size)
+        if usePatch:
+            data_term =calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+        else:
+            data_term =calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+
+        if data_term > 0:
+            confidence_to_propagate = priority / data_term 
+        else:
+            confidence_to_propagate = priority 
+            
+        # Mettre à jour la confiance de chaque pixel qui vient d'être rempli
+        for i in range(i0, i1):
+            for j in range(j0, j1):
+                if self.target_region[i, j] == 1: 
+                    self.confidence_values[(i, j)] = confidence_to_propagate
 
 
     """Main Function"""
-    def inpaint(self, animate = True):
+    def inpaint(self, animate = True, usePatch=False):
         if animate:
             self.generateAnimation()
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
         while np.any(self.target_region==1) and num_iter<3000:
             print("Iteration : " + str(num_iter))
-            self.calculate_priority()
+            self.calculate_priority(usePatch=usePatch)
             p = self.patch_to_use()
             patch_p = self.contour_patches[p]
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
-            self.update_values(p,patch_q)
+            self.update_values(p,patch_q, usePatch=usePatch)
             self.update_regions(p)
             self.update_patches(p)
             num_iter+=1
+            if num_iter%20 == 0:
+                print(f"Le nombre de pixels inconnus : {len(self.target_region[self.target_region==1])}")
             if animate:
                 self.frames.append(self.source_region.copy())
         if animate:
@@ -192,27 +240,36 @@ class Inpainting():
         plt.show()
 
     def display(self, test=0, deb=0):
+        img8 = (self.image * 255).astype(np.uint8)
+
+        if img8.shape[2] == 4:
+            img8 = img8[..., :3]
+
+        mask8 = (self.mask * 255).astype(np.uint8)
+
+        if mask8.ndim == 3 and mask8.shape[2] == 1:
+            mask8 = mask8.squeeze()
+
         if test:
             fig, axs = plt.subplots(1,4, figsize= (10,10))
             axs[0].imshow(self.image)
             axs[0].set_title("Original image"); axs[0].axis('off')
             axs[1].imshow(self.source_region)
             axs[1].set_title("Our algorithm"); axs[1].axis('off')
+            axs[2].imshow(self.mask)
+            axs[1].set_title("Mask"); axs[2].axis('off')
             if deb:
-                axs[2].imshow(self.target_region)
-                axs[2].set_title("Target Region"); axs[2].axis('off')
+                axs[3].imshow(self.target_region)
+                axs[3].set_title("Target Region"); axs[3].axis('off')
             else:
                 # Inpainting algorithm for opencv
-                img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
-                mask8 = (self.mask.astype(np.uint8) * 255)
+                '''img8 = (np.clip(self.image, 0, 1) * 255).astype(np.uint8)
+                mask8 = (self.mask.astype(np.uint8) * 255)''' # NE PAS RE-CONVERTIR ! Sinn des fois il y a erreur de channel
                 t1 = time.time()
                 inpainted = cv2.inpaint(img8, mask8, 3, cv2.INPAINT_TELEA)
                 t2 = time.time()-t1
-                axs[2].imshow(inpainted)
-                axs[2].set_title("Inpaint (OpenCV)"); axs[2].axis('off')
-                print(f"Opencv2 inpainting duration : {t2//60}mn{t2/60-t2//60}sec")
-            axs[3].imshow(self.mask)
-            axs[3].set_title("Mask"); axs[3].axis('off')
+                axs[3].imshow(inpainted)
+                axs[3].set_title("Inpaint (OpenCV)"); axs[3].axis('off')
             plt.tight_layout()
         else:
             fig, axs = plt.subplots(figsize= (10,10))
@@ -229,8 +286,13 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(image_filename='kanizsa_triangle.png', mask_filename='kanizsa_triangle.mask.webp', patch_size=9, curr_im=3)
-    inpaint.inpaint()
+    # For 8.original.webp, shape : 172,241 -> 239, 365
+    #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3, create_mask=1)
+    # 432, 23 -> 600, 100
+    # 70,50 -> 150, 70
+    # 62, 60 -> 162, 102
+    inpaint = Inpainting(image_filename='60.original.webp', mask_filename='60.mask.webp', patch_size=9, curr_im=3, create_mask=0)
+    inpaint.inpaint(usePatch=True)
     delta_t=time.time()-t0
     min = delta_t//60
     sec = (((delta_t/60-min)*60)*100)//100
