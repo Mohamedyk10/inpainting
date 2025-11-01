@@ -6,3 +6,16 @@ après, on aura un problème de calcul de gradient: il y aura des valeurs inconn
 c mieux de tester des images géométriques
 commencer sur de petites images pour debugger
 il faut décider le mask
+
+-
+
+Tester sur des figures géométriques
+ajouter le calcul de priorité
+ajouter une interface interactive pour créer le masque
+vérifier fonction qui traite le masque (different masque dans le plot que l'output)
+save image ne marche pas (à la fin de l'algorithme)
+
+-
+savoir pourquoi pour le terme de confiance seulement l'ordre de remplissage n'était pas correct
+essayer sur des *images géométriques simples* (important)
+essayer sans data term
