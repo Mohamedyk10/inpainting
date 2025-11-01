@@ -5,6 +5,7 @@ from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
 from alternative_utils import *
+from utils import *
 import os
 import random
 import time
