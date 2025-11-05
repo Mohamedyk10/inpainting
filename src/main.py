@@ -115,7 +115,7 @@ class Inpainting():
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             patch_p = make_patch(p, self.source_region, self.patch_size)
             if usePatch:
-                data_term = calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+                data_term = calculate_dataterm2(p, self.source_region, self.target_region, self.patch_size) 
             else:
                 data_term = calculate_dataterm(p, self.source_region, self.target_region) 
             
@@ -187,7 +187,7 @@ class Inpainting():
         # Recalcul de D(p)
         patch_p = make_patch(p, self.source_region, self.patch_size)
         if usePatch:
-            data_term =calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+            data_term =calculate_dataterm2(p, self.source_region, self.target_region, self.patch_size) 
         else:
             data_term =calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
 
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     # 432, 23 -> 600, 100
     # 70,50 -> 150, 70
     # 62, 60 -> 162, 102
-    inpaint = Inpainting(image_filename='60.original.webp', mask_filename='60.mask.webp', patch_size=9, curr_im=3, create_mask=0)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3, create_mask=1)
     inpaint.inpaint(usePatch=True)
     delta_t=time.time()-t0
     min = delta_t//60
