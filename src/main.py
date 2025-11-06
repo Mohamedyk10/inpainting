@@ -68,8 +68,6 @@ class Inpainting():
         return self.target_region - ndimage.binary_erosion(self.target_region).astype(np.uint8)
     def get_source_region(self):
         return self.image * (1 - self.mask)[..., None] 
-    def get_source_region(self):
-        return self.image * (1 - self.mask)[..., None] 
     
     def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0, create_mask=0):
         self.filename = image_filename
@@ -212,7 +210,6 @@ class Inpainting():
             print("Iteration : " + str(num_iter))
             self.calculate_priority(usePatch=usePatch)
             p = self.patch_to_use()
-            patch_p = self.contour_patches[p]
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
             self.update_values(p,patch_q, usePatch=usePatch)
             self.update_regions(p)
@@ -238,6 +235,8 @@ class Inpainting():
 
     def animate(self):
         ani = FuncAnimation(self.anim_fig, self.updateAnimation, frames=len(self.frames), interval=50, blit=True)
+        self.anim_fig.gca().axis('off')
+        self.anim_fig.suptitle("Step-by-Step visualisation", fontsize=16)
         plt.show()
 
     def display(self, test=0, deb=0):

@@ -40,13 +40,9 @@ def calculate_dataterm2(center, source_region, target_region, patch_size):
     x,y = center
     alpha = 255.0
     
-    # Pré-traitement : les pixels inconnus valent la moyenne
-    target_patch = make_patch(center, target_region, patch_size)
-    patch_p_filtered = cv2.cvtColor(make_patch(center, source_region, patch_size), cv2.COLOR_BGR2GRAY)
-    patch_p_filtered[target_patch==1]=np.mean(patch_p_filtered[target_patch==0])
-    
     # On lisse avec une gaussienne
-    patch_p_filtered = ndimage.gaussian_filter(patch_p_filtered, sigma=1.0)
+    bw_img = cv2.cvtColor(source_region, cv2.COLOR_BGR2GRAY)
+    bw_img = ndimage.gaussian_filter(bw_img, sigma=1.0)
     # Calcul de la Normale (n_p)
 
     grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
@@ -58,7 +54,7 @@ def calculate_dataterm2(center, source_region, target_region, patch_size):
     
 
     # Itération sur les canaux R, G, B
-    grad_I_y, grad_I_x = np.gradient(cv2.cvtColor(source_region, cv2.COLOR_BGR2GRAY))
+    grad_I_y, grad_I_x = np.gradient(bw_img)
     
     # Le gradient (dx, dy) au point p pour ce canal
     isophote = np.array([-grad_I_y[x, y], grad_I_x[x, y]])
