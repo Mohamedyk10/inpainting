@@ -291,7 +291,7 @@ if __name__ == "__main__":
     # 432, 23 -> 600, 100
     # 70,50 -> 150, 70
     # 62, 60 -> 162, 102
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3, create_mask=1)
+    inpaint = Inpainting(image_filename='NaturalTexture.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, curr_im=3, create_mask=1)
     inpaint.inpaint(usePatch=True)
     delta_t=time.time()-t0
     min = delta_t//60
