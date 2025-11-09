@@ -19,3 +19,7 @@ save image ne marche pas (à la fin de l'algorithme)
 savoir pourquoi pour le terme de confiance seulement l'ordre de remplissage n'était pas correct
 essayer sur des *images géométriques simples* (important)
 essayer sans data term
+
+-
+ajouter progress bar (tqdm)
+le temps d'execution dépend bcp de la résolution (surtt dans alternative avec RGB)
