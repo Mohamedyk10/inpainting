@@ -3,14 +3,14 @@ import matplotlib.pylab as plt
 import os
 
 # --- PARAMÈTRES DE VOTRE IMAGE ---
-HAUTEUR = 187  # Nombre de lignes
-LARGEUR = 250  # Nombre de colonnes
-NOM_FICHIER_MASQUE = "NaturalTexture.mask.webp"
+HAUTEUR = 280  # Nombre de lignes
+LARGEUR = 800  # Nombre de colonnes
+NOM_FICHIER_MASQUE = "entete-textures.mask.webp"
 
 # --- DÉFINITION DE LA ZONE À MASQUER (EN PIXELS) ---
 # Masque la zone centrale : de la ligne 80 à 200 et de la colonne 300 à 500.
-Y1, Y2 = 50, 130  # Lignes (Hauteur)
-X1, X2 = 70, 160  # Colonnes (Largeur)
+Y1, Y2 = 23, 100  # Lignes (Hauteur)
+X1, X2 = 432, 600  # Colonnes (Largeur)
 
 # 1. Création du masque binaire (tout à zéro initialement)
 masque = np.zeros((HAUTEUR, LARGEUR), dtype=np.uint8)

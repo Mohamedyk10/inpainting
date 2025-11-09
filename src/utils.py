@@ -38,10 +38,10 @@ def calculate_dataterm2(center, source_region, target_region, patch_size):
     """
     i, j = patch_size//2, patch_size//2
     x,y = center
-    alpha = 255.0
+    alpha = 255.0 #à corriger peut-être
     
     # On lisse avec une gaussienne
-    bw_img = cv2.cvtColor(source_region, cv2.COLOR_BGR2GRAY)
+    bw_img = cv2.cvtColor(source_region, cv2.COLOR_BGR2GRAY) #à corriger peut-être
     bw_img = ndimage.gaussian_filter(bw_img, sigma=1.0)
     # Calcul de la Normale (n_p)
 

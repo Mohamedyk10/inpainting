@@ -277,7 +277,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
