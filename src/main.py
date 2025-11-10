@@ -90,7 +90,7 @@ class Inpainting():
         # Patches initialization
         self.source_patches = {}
         self.contour_patches={} # {(i,j): patch}
-        self.patch_size = 9
+        self.patch_size = patch_size
         self.initialise_patch()
 
         # values for patches
@@ -113,7 +113,7 @@ class Inpainting():
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             patch_p = make_patch(p, self.source_region, self.patch_size)
             if usePatch:
-                data_term = calculate_dataterm2(p, self.source_region, self.target_region, self.patch_size) 
+                data_term = calculate_dataterm2(p, self.source_region, self.target_region) 
             else:
                 data_term = calculate_dataterm(p, self.source_region, self.target_region) 
             
@@ -183,11 +183,10 @@ class Inpainting():
         priority = self.priority_patches[p]
         
         # Recalcul de D(p)
-        patch_p = make_patch(p, self.source_region, self.patch_size)
         if usePatch:
-            data_term =calculate_dataterm2(p, self.source_region, self.target_region, self.patch_size) 
+            data_term =calculate_dataterm2(p, self.source_region, self.target_region) 
         else:
-            data_term =calculate_dataterm2(p, patch_p, self.target_region, self.patch_size) 
+            data_term =calculate_dataterm(p, self.source_region, self.target_region) 
 
         if data_term > 0:
             confidence_to_propagate = priority / data_term 
@@ -288,10 +287,10 @@ if __name__ == "__main__":
     t0 = time.time()
     # For 8.original.webp, shape : 172,241 -> 239, 365
     #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3, create_mask=1)
-    # 432, 23 -> 600, 100
-    # 70,50 -> 150, 70
-    # 62, 60 -> 162, 102
-    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, curr_im=3, create_mask=1)
+    # entete-textures : 432, 23 -> 600, 100
+    # simple_triangle : 30, 110 -> 77, 158
+    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, curr_im=3, create_mask=1)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3, create_mask=1)
     inpaint.inpaint(usePatch=True)
     delta_t=time.time()-t0
     min = delta_t//60

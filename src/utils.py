@@ -31,18 +31,20 @@ def calculate_confidence(center, confidence_values, patch_size):
 
     return total_confidence / (patch_size ** 2)
 
-def calculate_dataterm2(center, source_region, target_region, patch_size):
+def calculate_dataterm2(center, source_region, target_region):
     """
     Calcule le terme de données D(p) en utilisant les trois canaux.
     Inclut un lissage gaussien initial pour atténuer l'effet du 'faux bord' du trou.
     """
-    i, j = patch_size//2, patch_size//2
     x,y = center
-    alpha = 255.0 #à corriger peut-être
+    alpha = 1.0
     
-    # On lisse avec une gaussienne
-    bw_img = cv2.cvtColor(source_region, cv2.COLOR_BGR2GRAY) #à corriger peut-être
-    bw_img = ndimage.gaussian_filter(bw_img, sigma=1.0)
+    # Conversion en Noir et blanc + gaussienne
+    bw_img = 0.299 * source_region[:, :, 0] + 0.587 * source_region[:, :, 1] + 0.114 * source_region[:, :, 2] #à corriger peut-être
+    bw_img = ndimage.uniform_filter(bw_img, size=3)
+    #bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
+
+    # bw_img = ndimage.median_filter(bw_img, size=3) <- mieux pour le triangle mais très long
     # Calcul de la Normale (n_p)
 
     grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
@@ -71,58 +73,58 @@ def calculate_dataterm2(center, source_region, target_region, patch_size):
 
 def calculate_dataterm(center, source_region, target_region):
     """
-    Calcule le terme de données D(p) en utilisant les trois canaux.
-    Inclut un lissage gaussien initial pour atténuer l'effet du 'faux bord' du trou.
+    Calcule D(p) = |(grad I)_perp . n_p| / alpha, en utilisant le canal 
+    avec la magnitude de gradient la plus forte (vectorisé).
     """
-    i, j = center
+    x, y = center
+    alpha=1.0
     
-    # Pré-traitement: LISSAGE GAUSSIEN
-    sigma_lissage = 1.0 
-    
-    smoothed_region = ndimage.gaussian_filter(source_region, sigma=(sigma_lissage, sigma_lissage, 0))
-
-    # Calcul de la Normale (n_p)
-
+    # Calculating n_p
     grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
-    n_p = np.array([grad_mask_y[i, j], grad_mask_x[i, j]])
-    norm_n_p = np.linalg.norm(n_p)
+    n_p_vector = np.array([grad_mask_y[x, y], grad_mask_x[x, y]]) 
+    
+    norm_n_p = np.linalg.norm(n_p_vector)
     if norm_n_p == 0:
         return 0.0
-    n_p = n_p / norm_n_p
-
+    n_p = n_p_vector / norm_n_p 
     
-    # Calcul du Vecteur Isophote sur 3 canaux
-    max_grad_magnitude = 0.0 
-    isophote_I_best = np.array([0.0, 0.0])
-    alpha = 1.0
     
-    # Itération sur les canaux R, G, B
-    for channel in range(smoothed_region.shape[2]):
-        I_channel = smoothed_region[:, :, channel]
-        grad_I_y, grad_I_x = np.gradient(I_channel)
-        
-        # Le gradient (dx, dy) au point p pour ce canal
-        grad_I = np.array([grad_I_x[i, j], grad_I_y[i, j]])
-        grad_magnitude = np.linalg.norm(grad_I)
-        
-        if grad_magnitude > max_grad_magnitude:
-             max_grad_magnitude = grad_magnitude
-             
-             # Vecteur isophote (orthogonal au gradient): (-dy, dx)
-             isophote_I_best = np.array([-grad_I_y[i, j], grad_I_x[i, j]])
-
-
-    # Calcul de D(p)
+    # Calculating the isophote
+    smoothed_region = ndimage.gaussian_filter(source_region, sigma=1.0)
     
-    data_term = np.abs(np.dot(isophote_I_best, n_p)) / alpha
+    grad_y, grad_x = np.gradient(smoothed_region, axis=(0, 1))
+    #print(f"grad_x : {grad_x.shape}; grad_y : {grad_y.shape}")
+    # Extraction des 3 gradients (dy, dx) au point p = (x, y)
+    # gradients_p.shape = (3, 2) où chaque ligne est [dy, dx] pour un canal
+    gradients_p = np.array([
+        [grad_y[x, y, 0], grad_x[x, y, 0]],  # Canal 0 (R)
+        [grad_y[x, y, 1], grad_x[x, y, 1]],  # Canal 1 (G)
+        [grad_y[x, y, 2], grad_x[x, y, 2]]   # Canal 2 (B)
+    ])
     
-    return min(data_term, 1.0)
+    # Calcul des magnitudes de gradient pour les 3 canaux
+    # magnitudes.shape = (3,)
+    magnitudes = np.linalg.norm(gradients_p, axis=1)
+    
+    # Trouver l'indice du canal qui a la magnitude maximale
+    best_channel_index = np.argmax(magnitudes)
+    
+    # Gradient du canal gagnant (vecteur [dy, dx])
+    best_grad_I = gradients_p[best_channel_index]
+    
+    # Le vecteur Isophote I_perp est la rotation de 90° du gradient ([-dy, dx])
+    isophote_I_best = np.array([-best_grad_I[0], best_grad_I[1]]) 
+            
+    dot_product = np.dot(isophote_I_best, n_p)
+    data_term = np.abs(dot_product) / alpha
+    
+    return data_term
 
-def make_patch(center, source_region, patch_size=9):
+def make_patch(center, region, patch_size=9):
     "Retourne un patch centré sur un pixel (i,j)"
     i, j = center
     half = patch_size // 2
-    return source_region[i - half:i + half + 1, j - half:j + half + 1]
+    return region[i - half:i + half + 1, j - half:j + half + 1]
 
 def determine_closest_patch(target_region, patches : dict, contour_patch, p):
     # A modifier
