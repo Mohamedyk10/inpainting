@@ -1,17 +1,9 @@
 
 import numpy as np
-import cv2
 from scipy import ndimage
 
 """Tout ce qui nous sera utile pour le fichier principal"""
 
-""" def make_patch(p, source_region, patch_size=9):
-    half= patch_size//2
-    patch = np.zeros((patch_size, patch_size, 3))
-    for i in range(-half, +half+1):
-        for j in range(-half, +half+1):
-            patch[i+half, j+half]=source_region[(p[0]+i,p[1]+j)]
-    return patch """
 # Calculate values
 def calculate_confidence(center, confidence_values, patch_size):
     """
@@ -33,8 +25,8 @@ def calculate_confidence(center, confidence_values, patch_size):
 
 def calculate_dataterm2(center, source_region, target_region):
     """
-    Calcule le terme de données D(p) en utilisant les trois canaux.
-    Inclut un lissage gaussien initial pour atténuer l'effet du 'faux bord' du trou.
+    Calculate dataterm D(p) by transforming the image into a gray-scale image.
+    We use a smoothing filter in order to correct the effect of "edges" in the border with target region
     """
     x,y = center
     alpha = 1.0
@@ -45,8 +37,8 @@ def calculate_dataterm2(center, source_region, target_region):
     #bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
 
     # bw_img = ndimage.median_filter(bw_img, size=3) <- mieux pour le triangle mais très long
-    # Calcul de la Normale (n_p)
 
+    # n_p computing
     grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
     n_p = np.array([grad_mask_y[x,y], grad_mask_x[x,y]])
     norm_n_p = np.linalg.norm(n_p)
@@ -58,23 +50,17 @@ def calculate_dataterm2(center, source_region, target_region):
     # Itération sur les canaux R, G, B
     grad_I_y, grad_I_x = np.gradient(bw_img)
     
-    # Le gradient (dx, dy) au point p pour ce canal
+    # We should have it perpendicular to the gradient
     isophote = np.array([-grad_I_y[x, y], grad_I_x[x, y]])
     
-    # Normalisation
-    # norme_isophote = np.linalg.norm(isophote_I_best)
-    # if norme_isophote:
-    #     normalise_isophote = isophote_I_best/norme_isophote 
-    # else: normalise_isophote = isophote_I_best
-    # Calcul de D(p)
+    # Final Answer
     data_term = np.abs(np.dot(isophote, n_p)) / alpha
     
     return data_term
 
 def calculate_dataterm(center, source_region, target_region):
     """
-    Calcule D(p) = |(grad I)_perp . n_p| / alpha, en utilisant le canal 
-    avec la magnitude de gradient la plus forte (vectorisé).
+    Calculate the data term using the maximal isophote of the three RGB canals.
     """
     x, y = center
     alpha=1.0
@@ -93,26 +79,17 @@ def calculate_dataterm(center, source_region, target_region):
     smoothed_region = ndimage.gaussian_filter(source_region, sigma=1.0)
     
     grad_y, grad_x = np.gradient(smoothed_region, axis=(0, 1))
-    #print(f"grad_x : {grad_x.shape}; grad_y : {grad_y.shape}")
-    # Extraction des 3 gradients (dy, dx) au point p = (x, y)
-    # gradients_p.shape = (3, 2) où chaque ligne est [dy, dx] pour un canal
     gradients_p = np.array([
         [grad_y[x, y, 0], grad_x[x, y, 0]],  # Canal 0 (R)
         [grad_y[x, y, 1], grad_x[x, y, 1]],  # Canal 1 (G)
         [grad_y[x, y, 2], grad_x[x, y, 2]]   # Canal 2 (B)
     ])
     
-    # Calcul des magnitudes de gradient pour les 3 canaux
-    # magnitudes.shape = (3,)
     magnitudes = np.linalg.norm(gradients_p, axis=1)
-    
-    # Trouver l'indice du canal qui a la magnitude maximale
     best_channel_index = np.argmax(magnitudes)
-    
-    # Gradient du canal gagnant (vecteur [dy, dx])
     best_grad_I = gradients_p[best_channel_index]
     
-    # Le vecteur Isophote I_perp est la rotation de 90° du gradient ([-dy, dx])
+    # we need the perpendicular of the isophote
     isophote_I_best = np.array([-best_grad_I[0], best_grad_I[1]]) 
             
     dot_product = np.dot(isophote_I_best, n_p)
@@ -121,7 +98,7 @@ def calculate_dataterm(center, source_region, target_region):
     return data_term
 
 def make_patch(center, region, patch_size=9):
-    "Retourne un patch centré sur un pixel (i,j)"
+    "Returns a centered patch around center=(i,j)"
     i, j = center
     half = patch_size // 2
     return region[i - half:i + half + 1, j - half:j + half + 1]
@@ -140,25 +117,8 @@ def determine_closest_patch(target_region, patches : dict, contour_patch, p):
     keys_patches = list(patches.keys())
     return keys_patches[min_index]
 
-"""
-ou bien
-
-def determine_closest_patch(source_patches, target_patch):
-    "Trouve le patch le plus proche dans la source"
-    best_dist = float('inf')
-    best_patch = None
-
-    for key, src_patch in source_patches.items():
-        if src_patch.shape != target_patch.shape:
-            continue
-        dist = np.sum((src_patch - target_patch) ** 2)
-        if dist < best_dist:
-            best_dist = dist
-            best_patch = key
-    return best_patch
-"""
-
 def add_mask_rect(image):
+    """Creates a rectangular mask"""
     if image.ndim == 3:
         hauteur, largeur, nb_chaines = image.shape
     else:
@@ -177,12 +137,6 @@ def add_mask_rect(image):
     masque[y1:y2, x1:x2] = 1
     
     return masque
-
-'''
-masque = ajouter_mask_rect()
-plt.imshow(masque, cmap="gray")
-plt.show()
-'''
 
 def get_image_name(filename):
     name = ""

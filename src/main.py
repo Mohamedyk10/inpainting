@@ -20,7 +20,7 @@ mask_filepaths = glob(os.path.join(data_dir, '*mask.webp'))
 
 
 class Inpainting():
-    """A class that implements Exemplar-based inpainting method"""
+    """A class that implements Exemplar-based inpainting method based on the article."""
 
     """Loading data"""
     def fast_load_image_from_database(self, filename_original="entete-textures.jpg", filename_mask="entete-textures.mask.webp", create_mask=0):
@@ -49,21 +49,7 @@ class Inpainting():
         print(f"Image chargée : {filename_original}")
         print(f"Masque chargé")
     
-    # def load_image_from_database(self):
-    #     self.image = plt.imread(original_filepaths[self.current_img])
-    #     self.mask = plt.imread(mask_filepaths[self.current_img])
-
-    #     #Si le masque est RGB 
-    #     if self.mask.ndim == 3:
-    #         self.mask = self.mask[...,0]
-
-    #     #Pour le rendre binaire
-    #     self.mask = (self.mask > 0).astype(np.uint8)
-        
-    #     if self.current_img<len(original_filepaths)-1:
-    #         self.current_img+=1
-    
-    """Getters"""
+    """Getters and initialisation"""
     def get_contour(self):
         return self.target_region - ndimage.binary_erosion(self.target_region).astype(np.uint8)
     def get_source_region(self):
@@ -103,13 +89,17 @@ class Inpainting():
         self.animation= None
         self.anim_fig = None
     
+    def initialise_patch(self):
+        half = self.patch_size//2
+        self.source_patches = {(i,j): make_patch((i,j), self.source_region, self.patch_size) for i in range(half, self.image.shape[0]-half) for j in range(half, self.image.shape[1]-half) if np.all(self.target_region[i-half:i+half+1, j-half:j+half+1]==0 )}
+        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
+    
+    """Priority based functions"""
     def calculate_priority(self, usePatch=True):
-        """Calcule la priorité P(p) = C(p) * D(p) pour chaque patch de contour."""
+        """Calculate priority P(p)=C(p).D(p) for each patch of the contour."""
         
         self.priority_patches = {} 
-        
         for p in self.contour:
-
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             patch_p = make_patch(p, self.source_region, self.patch_size)
             if usePatch:
@@ -120,32 +110,6 @@ class Inpainting():
             self.priority_patches[p] = confidence_term * data_term
             
         print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
-
-    def update_regions(self, p):
-        x,y = p
-        i0, i1 = x-self.patch_size//2, x+self.patch_size//2+1
-        j0, j1 = y-self.patch_size//2, y+self.patch_size//2+1
-        self.target_region[i0:i1, j0:j1]=0
-        self.source_region[i0:i1, j0:j1] = self.contour_patches[p]
-        self.contour_region = self.get_contour()
-        self.contour = [(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)]
-        pass
-    
-    def initialise_patch(self):
-        half = self.patch_size//2
-        self.source_patches = {(i,j): make_patch((i,j), self.source_region, self.patch_size) for i in range(half, self.image.shape[0]-half) for j in range(half, self.image.shape[1]-half) if np.all(self.target_region[i-half:i+half+1, j-half:j+half+1]==0 )}
-        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
-
-    def update_patches(self, p):
-        """Create a patch for a pixel in the contour"""
-        half = self.patch_size//2
-        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
-        for i in range(max(half,p[0]-self.patch_size*3//2), min(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
-            for j in range(max(half,p[1]-self.patch_size*3//2), min(len(self.image[0])-half,p[1]+self.patch_size*3//2+1)):
-                target = make_patch((i,j), self.target_region, self.patch_size)
-                if np.all(target==0):
-                    self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
-
     def patch_to_use(self):
         """Retourne la clé du patch avec la priorité P(p) la plus élevée (max(C(p)))."""
     
@@ -162,6 +126,28 @@ class Inpainting():
     def best_match_sample(self, p): # p = (i,j)
         """Returns the best match patch"""
         return determine_closest_patch(self.target_region, self.source_patches, self.contour_patches, p)
+
+    """Updating"""
+    def update_regions(self, p):
+        x,y = p
+        i0, i1 = x-self.patch_size//2, x+self.patch_size//2+1
+        j0, j1 = y-self.patch_size//2, y+self.patch_size//2+1
+        self.target_region[i0:i1, j0:j1]=0
+        self.source_region[i0:i1, j0:j1] = self.contour_patches[p]
+        self.contour_region = self.get_contour()
+        self.contour = [(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)]
+        pass
+
+    def update_patches(self, p):
+        """Create a patch for a pixel in the contour"""
+        half = self.patch_size//2
+        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
+        for i in range(max(half,p[0]-self.patch_size*3//2), min(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
+            for j in range(max(half,p[1]-self.patch_size*3//2), min(len(self.image[0])-half,p[1]+self.patch_size*3//2+1)):
+                target = make_patch((i,j), self.target_region, self.patch_size)
+                if np.all(target==0):
+                    self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
+
 
     def update_values(self,p,patch_q, usePatch=True):
         """Met à jour les valeurs de pixel du patch (p) et la confiance des pixels remplis."""
@@ -281,14 +267,15 @@ class Inpainting():
         image_name = get_image_name(self.filename)
         plt.imsave("output/"+image_name, self.source_region)
 
-#Pour tester:
-
 if __name__ == "__main__":
     t0 = time.time()
-    # For 8.original.webp, shape : 172,241 -> 239, 365
+    """Some suggestions of mask shapes if you want to create ones :
+        8.original.webp : 172, 241, 239, 365
+        entete-textures : 432, 23, 600, 100
+        simple_triangle : 30, 110, 77, 158
+    In order to make personal rectangular masks you need to make sure that create_mask = 1 
+    """
     #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3, create_mask=1)
-    # entete-textures : 432, 23 -> 600, 100
-    # simple_triangle : 30, 110 -> 77, 158
     #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, curr_im=3, create_mask=1)
     inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3, create_mask=1)
     inpaint.inpaint(usePatch=True)
