@@ -24,6 +24,8 @@ class Inpainting():
 
     """Loading data"""
     def fast_load_image_from_database(self, filename_original="entete-textures.jpg", filename_mask="entete-textures.mask.webp", create_mask=0):
+        """Loads our image and mask
+        - If ``create_mask`` is true, allow us to generate a mask by inputing the 4 values defining the rectangle"""
         # Chemin absolu du dossier 'data' (voisin de 'src')
         script_dir = os.path.dirname(__file__)
         data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
@@ -55,10 +57,21 @@ class Inpainting():
     def get_source_region(self):
         return self.image * (1 - self.mask)[..., None] 
     
-    def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0, create_mask=0):
+    def __init__(self, image_filename, mask_filename, patch_size=9, create_mask=0):
+        """Initialize our inpainting algorithm.
+        - ``image_filename`` the name of the image file to inpaint.
+        - ``mask_filename`` the name of the mask file to inpaint (if **create_mask=1**, it is not used).
+        - ``patch_size`` the size of patches created by the algorithm.
+        - ``create_mask``, if True, allow us to create rectangular masks by giving the 4 values that defines a rectangle :
+            - x1 : left column
+            - y1 : higher row
+            - x2 : right column
+            - y2 : lower row
+
+            Note that in image processing : if y>y', it means that y is below y'.
+            """
         self.filename = image_filename
         # Dataset related variables
-        self.current_img=curr_im
         self.image = np.array([])
         self.mask = np.array([])
         self.fast_load_image_from_database(image_filename, mask_filename, create_mask)
@@ -95,17 +108,16 @@ class Inpainting():
         self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
     
     """Priority based functions"""
-    def calculate_priority(self, usePatch=True):
+    def calculate_priority(self, convertBW=True):
         """Calculate priority P(p)=C(p).D(p) for each patch of the contour."""
         
         self.priority_patches = {} 
         for p in self.contour:
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
-            patch_p = make_patch(p, self.source_region, self.patch_size)
-            if usePatch:
+            if convertBW:
                 data_term = calculate_dataterm2(p, self.source_region, self.target_region) 
             else:
-                data_term = calculate_dataterm(p, self.source_region, self.target_region) 
+                data_term = calculate_dataterm(p, self.source_region, self.target_region)
             
             self.priority_patches[p] = confidence_term * data_term
             
@@ -149,14 +161,14 @@ class Inpainting():
                     self.source_patches[(i,j)]=make_patch((i,j), self.source_region, self.patch_size)
 
 
-    def update_values(self,p,patch_q, usePatch=True):
-        """Met à jour les valeurs de pixel du patch (p) et la confiance des pixels remplis."""
+    def update_values(self,p,patch_q, convertBW=True):
+        """Update values of unkown pixels p and their confidence values"""
     
         half = self.patch_size // 2
         i0, i1 = p[0] - half, p[0] + half + 1
         j0, j1 = p[1] - half, p[1] + half + 1
         
-        # 1. Mise à jour des valeurs de pixel du patch p
+        # Updating values of unkown pixels p
         target_patch_mask = self.target_region[i0:i1, j0:j1]
         unknown_pixels_in_patch = (target_patch_mask == 1)
         
@@ -164,22 +176,20 @@ class Inpainting():
         new_patch_val[unknown_pixels_in_patch] = patch_q[unknown_pixels_in_patch]
         self.contour_patches[p] = new_patch_val
         
-        # 2. MISE À JOUR DE LA CONFIANCE
+        # 2. Updating confidence values
  
         priority = self.priority_patches[p]
         
-        # Recalcul de D(p)
-        if usePatch:
+        if convertBW:
             data_term =calculate_dataterm2(p, self.source_region, self.target_region) 
         else:
-            data_term =calculate_dataterm(p, self.source_region, self.target_region) 
+            data_term =calculate_dataterm(p, self.source_region, self.target_region)
 
         if data_term > 0:
             confidence_to_propagate = priority / data_term 
         else:
             confidence_to_propagate = priority 
             
-        # Mettre à jour la confiance de chaque pixel qui vient d'être rempli
         for i in range(i0, i1):
             for j in range(j0, j1):
                 if self.target_region[i, j] == 1: 
@@ -187,16 +197,26 @@ class Inpainting():
 
 
     """Main Function"""
-    def inpaint(self, animate = True, usePatch=False):
+    def inpaint(self, animate = True, convertBW=True):
+        """runs the exemplar-based inpainting algorithm
+
+            - **animate** = True : allows us to see the animation of the filling process
+
+            - **convertBW** select the calculating dataterm method.
+
+                - If convertBW=True : We convert the image in BW before calculating gradients.
+
+                - Otherwise : We use the three RGB canals and select the maximum isotope. (way slower and doesn't give too much better results than the first) 
+                """
         if animate:
             self.generateAnimation()
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
         while np.any(self.target_region==1) and num_iter<3000:
             print("Iteration : " + str(num_iter))
-            self.calculate_priority(usePatch=usePatch)
+            self.calculate_priority(convertBW=convertBW)
             p = self.patch_to_use()
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
-            self.update_values(p,patch_q, usePatch=usePatch)
+            self.update_values(p,patch_q, convertBW=convertBW)
             self.update_regions(p)
             self.update_patches(p)
             num_iter+=1
@@ -225,6 +245,22 @@ class Inpainting():
         plt.show()
 
     def display(self, test=0, deb=0):
+        """Displays the inpainted image with some other things :
+        - If ``test=0`` : shows the inpainted image only.
+        - If ``test=1`` :
+            - If ``deb=0``, shows :
+                - The original image
+                - The inpainted image
+                - The mask used
+                - The Target Region (should be empty : a null image)
+
+                Used to verify that the algorithm has converged.
+            - If ``deb=1``, shows :
+                - The original image
+                - The inpainted image
+                - The mask used
+                - The inpainted image with OpenCV.
+            """
         img8 = (self.image * 255).astype(np.uint8)
 
         if img8.shape[2] == 4:
@@ -236,14 +272,17 @@ class Inpainting():
             mask8 = mask8.squeeze()
 
         if test:
+            """Used to see the result of our algorithm"""
             fig, axs = plt.subplots(1,4, figsize= (10,10))
             axs[0].imshow(self.image)
             axs[0].set_title("Original image"); axs[0].axis('off')
             axs[1].imshow(self.source_region)
             axs[1].set_title("Our algorithm"); axs[1].axis('off')
             axs[2].imshow(self.mask)
-            axs[1].set_title("Mask"); axs[2].axis('off')
+            axs[2].set_title("Mask"); axs[2].axis('off')
             if deb:
+                """Was used in the begining to verify that the algorithm 
+                has really filled up the whole area of the mask"""
                 axs[3].imshow(self.target_region)
                 axs[3].set_title("Target Region"); axs[3].axis('off')
             else:
@@ -257,12 +296,14 @@ class Inpainting():
                 axs[3].set_title("Inpaint (OpenCV)"); axs[3].axis('off')
             plt.tight_layout()
         else:
+            """Plots only the result of our algorithm"""
             fig, axs = plt.subplots(figsize= (10,10))
             axs.imshow(self.source_region)
             axs.set_title("Source Region"); axs.axis('off')
         plt.show()
 
     def save_image(self):
+        """Saves the inpainted image in the ``output/`` folder"""
         # At the end : output image = self.source_region
         image_name = get_image_name(self.filename)
         plt.imsave("output/"+image_name, self.source_region)
@@ -275,10 +316,10 @@ if __name__ == "__main__":
         simple_triangle : 30, 110, 77, 158
     In order to make personal rectangular masks you need to make sure that create_mask = 1 
     """
-    #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, curr_im=3, create_mask=1)
-    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, curr_im=3, create_mask=1)
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=9, curr_im=3, create_mask=1)
-    inpaint.inpaint(usePatch=True)
+    #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, create_mask=1)
+    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, create_mask=1)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
+    inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
     sec = (((delta_t/60-min)*60)*100)//100

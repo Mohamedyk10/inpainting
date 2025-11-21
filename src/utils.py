@@ -7,8 +7,9 @@ from scipy import ndimage
 # Calculate values
 def calculate_confidence(center, confidence_values, patch_size):
     """
-    Calcule le terme de confiance C(p) pour un patch centré sur 'center'.
-    C(p) = Somme des C(q) dans le patch / (taille du patch)²
+    Calculate the confidence term C(p) for a centered patch around ``center``.
+
+    C(p) = (sum of C(q) of the pixels q from the patch) / patch_size²
     """
     i, j = center
     half = patch_size // 2
@@ -23,44 +24,11 @@ def calculate_confidence(center, confidence_values, patch_size):
 
     return total_confidence / (patch_size ** 2)
 
-def calculate_dataterm2(center, source_region, target_region):
-    """
-    Calculate dataterm D(p) by transforming the image into a gray-scale image.
-    We use a smoothing filter in order to correct the effect of "edges" in the border with target region
-    """
-    x,y = center
-    alpha = 1.0
-    
-    # Conversion en Noir et blanc + gaussienne
-    bw_img = 0.299 * source_region[:, :, 0] + 0.587 * source_region[:, :, 1] + 0.114 * source_region[:, :, 2] #à corriger peut-être
-    bw_img = ndimage.uniform_filter(bw_img, size=3)
-    #bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
-
-    # bw_img = ndimage.median_filter(bw_img, size=3) <- mieux pour le triangle mais très long
-
-    # n_p computing
-    grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
-    n_p = np.array([grad_mask_y[x,y], grad_mask_x[x,y]])
-    norm_n_p = np.linalg.norm(n_p)
-    if norm_n_p == 0:
-        return 0.0
-    n_p = n_p / norm_n_p
-    
-
-    # Itération sur les canaux R, G, B
-    grad_I_y, grad_I_x = np.gradient(bw_img)
-    
-    # We should have it perpendicular to the gradient
-    isophote = np.array([-grad_I_y[x, y], grad_I_x[x, y]])
-    
-    # Final Answer
-    data_term = np.abs(np.dot(isophote, n_p)) / alpha
-    
-    return data_term
-
 def calculate_dataterm(center, source_region, target_region):
     """
-    Calculate the data term using the maximal isophote of the three RGB canals.
+    Calculate the data term using the maximal isophote of the three RGB canals. 
+
+    **Very slow method.**
     """
     x, y = center
     alpha=1.0
@@ -97,6 +65,43 @@ def calculate_dataterm(center, source_region, target_region):
     
     return data_term
 
+def calculate_dataterm2(center, source_region, target_region):
+    """
+    Calculate dataterm D(p) by transforming the image into a gray-scale image.
+    We use a smoothing filter in order to correct the effect of "edges" in the border with target region
+
+    **Faster method, it is the method used in our final version.**
+    """
+    x,y = center
+    alpha = 1.0
+    
+    # Conversion en Noir et blanc + gaussienne
+    bw_img = 0.299 * source_region[:, :, 0] + 0.587 * source_region[:, :, 1] + 0.114 * source_region[:, :, 2] #à corriger peut-être
+    bw_img = ndimage.uniform_filter(bw_img, size=3)
+    #bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
+
+    # bw_img = ndimage.median_filter(bw_img, size=3) <- mieux pour le triangle mais très long
+
+    # n_p computing
+    grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
+    n_p = np.array([grad_mask_y[x,y], grad_mask_x[x,y]])
+    norm_n_p = np.linalg.norm(n_p)
+    if norm_n_p == 0:
+        return 0.0
+    n_p = n_p / norm_n_p
+    
+
+    # Itération sur les canaux R, G, B
+    grad_I_y, grad_I_x = np.gradient(bw_img)
+    
+    # We should have it perpendicular to the gradient
+    isophote = np.array([-grad_I_y[x, y], grad_I_x[x, y]])
+    
+    # Final Answer
+    data_term = np.abs(np.dot(isophote, n_p)) / alpha
+    
+    return data_term
+
 def make_patch(center, region, patch_size=9):
     "Returns a centered patch around center=(i,j)"
     i, j = center
@@ -104,7 +109,7 @@ def make_patch(center, region, patch_size=9):
     return region[i - half:i + half + 1, j - half:j + half + 1]
 
 def determine_closest_patch(target_region, patches : dict, contour_patch, p):
-    # A modifier
+    """Determines the closest patch from the dict. of ``patches`` to the centered patch around ``p``."""
     patch_p = contour_patch[p]; half = len(patch_p)//2
     mask_patch = make_patch(p, target_region, len(patch_p))
     existant_pixels = np.where(mask_patch==0)
