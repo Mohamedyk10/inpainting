@@ -13,14 +13,17 @@ import time
 data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
 
 class Inpainting():
-    def fast_load_image_from_database(self, filename_original, filename_mask):
+    def fast_load_image_from_database(self, filename_original, filename_mask, create_mask=False):
         script_dir = os.path.dirname(__file__)
         data_dir = os.path.abspath(os.path.join(script_dir, '..', 'data'))
         image_path = os.path.join(data_dir, filename_original)
-        mask_path  = os.path.join(data_dir, filename_mask)
 
         self.image = plt.imread(image_path).copy()
-        self.mask  = plt.imread(mask_path)
+        if create_mask:
+            self.mask = add_mask_rect(image=self.image)
+        else: 
+            mask_path  = os.path.join(data_dir, filename_mask)
+            self.mask  = plt.imread(mask_path)
 
         if self.mask.ndim == 3:
             self.mask = self.mask[..., 0]
@@ -32,11 +35,11 @@ class Inpainting():
     def get_source_region(self):
         return self.image * (1 - self.mask)[..., None] 
     
-    def __init__(self, image_filename, mask_filename, patch_size=9, search_prop=0.3, sigma_lissage=1.0):
+    def __init__(self, image_filename, mask_filename, patch_size=9, search_prop=0.3, sigma_lissage=1.0, create_mask=False):
         self.filename = image_filename
         self.image = np.array([])
         self.mask = np.array([])
-        self.fast_load_image_from_database(image_filename, mask_filename)
+        self.fast_load_image_from_database(image_filename, mask_filename, create_mask)
 
         if self.image.dtype == np.uint8 or np.nanmax(self.image) > 1.0:
             self.image = self.image.astype(np.float32) / 255.0
@@ -262,12 +265,13 @@ class Inpainting():
 
 if __name__ == "__main__":
     """Ce sont les paramètres à ajuster pour l'inpainting"""
+    create_mask = False # if True, allow to manually create a rectangular mask, the mask filename will be ignored
     patch_size = 7
     search_prop = 0.35
     sigma_lissage = 1.25
     t0 = time.time()
-    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage)
-    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, search_prop=search_prop, sigma_lissage=sigma_lissage)
+    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
     inpaint.inpaint()
     
     delta_t=time.time()-t0
