@@ -4,19 +4,13 @@ from glob import glob
 from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
-from alternative_utils_2 import *
+from alternative_utils_2 import * # Assurez-vous d'avoir mis à jour ce fichier !
 import os
 import random
 import time
 
-# Rendre le chemin robuste quel que soit le dossier d'exécution
+# Rendre le chemin robuste
 data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
-original_filepaths = glob(os.path.join(data_dir, '*original.webp'))
-mask_filepaths = glob(os.path.join(data_dir, '*mask.webp'))
-
-'''def targetify(mask):
-    return image * mask[..., None] '''
-
 
 class Inpainting():
     def fast_load_image_from_database(self, filename_original, filename_mask):
@@ -40,7 +34,6 @@ class Inpainting():
     
     def __init__(self, image_filename, mask_filename, patch_size=9, curr_im = 0):
         self.filename = image_filename
-        self.current_img = curr_im
         self.image = np.array([])
         self.mask = np.array([])
         self.fast_load_image_from_database(image_filename, mask_filename)
@@ -51,38 +44,53 @@ class Inpainting():
         self.target_region = self.mask.copy()
         self.source_region = self.get_source_region()
         self.contour_region = self.get_contour()
-        # Optimisation Set
         self.contour = {(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)}
 
         self.source_patches = {}
         self.contour_patches = {}
         self.patch_size = patch_size
         
-        # Optimisation Radius (CRUCIAL POUR LA VITESSE)
+        # Optimisation 1: Radius de recherche
         img_min_dim = min(self.image.shape[0], self.image.shape[1])
-        self.search_radius = int(img_min_dim * 0.20) # 20% de l'image par sécurité, ou remettre 0.10
+        self.search_radius = int(img_min_dim * 0.30) 
         
         self.initialise_patch()
 
         self.confidence_values = {(i,j): int(self.target_region[i,j]==0) for i in range(len(self.target_region)) for j in range(len(self.target_region[1]))}
         self.priority_patches = {} 
 
+        # --- Optimisation 2: Initialisation des Gradients ---
+        print("Initialisation des gradients...")
+        # On stocke les tableaux de gradients dans l'objet
+        self.grads_y, self.grads_x = initialize_gradients(self.source_region)
+        
+        # On pré-calcule aussi le gradient du masque (qui change, mais on peut le garder ici ou le mettre à jour localement, 
+        # pour simplifier on utilise np.gradient sur le masque dans calculate_priority, c'est rapide car le masque est simple)
+        # Mais pour être cohérent avec calculate_dataterm_optimized, on a besoin des grads du masque
+        # On va les calculer à la volée dans calculate_priority ou on peut les stocker.
+        # Pour l'instant, calculons les dans calculate_priority car le masque change de forme binaire brute.
+        
         self.frames = [self.source_region.copy()]
         self.animation = None
         self.anim_fig = None
-        # PAS DE PRE-CALCUL DE GRADIENT ICI !
     
     def calculate_priority(self):
         self.priority_patches = {} 
+        
+        # Calcul du gradient du masque (Rapide sur image binaire)
+        grad_mask_y, grad_mask_x = np.gradient(self.target_region.astype(np.float32))
+
         for p in self.contour:
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
             
-            # Appel Dynamique : On passe l'image actuelle (self.source_region)
-            data_term = calculate_dataterm(p, self.source_region, self.target_region) 
+            # Appel à la fonction OPTIMISÉE (lecture seule)
+            data_term = calculate_dataterm_optimized(
+                p, 
+                grad_mask_y, grad_mask_x, 
+                self.grads_y, self.grads_x
+            )
             
             self.priority_patches[p] = confidence_term * data_term
-            
-        # print(f"Priorités calculées pour {len(self.priority_patches)} patches.")
 
     def update_regions(self, p):
         x, y = p
@@ -135,6 +143,7 @@ class Inpainting():
             if point[0] - half >= 0 and point[0] + half < h and point[1] - half >= 0 and point[1] + half < w:
                 self.contour_patches[point] = make_patch(point, self.source_region, self.patch_size)
 
+        # Optimisation: Mise à jour locale des source_patches
         for i in range(max(half, p[0]-self.patch_size*3//2), min(h-half, p[0]+self.patch_size*3//2+1)):
             for j in range(max(half, p[1]-self.patch_size*3//2), min(w-half, p[1]+self.patch_size*3//2+1)):
                 if (i, j) not in self.source_patches:
@@ -144,13 +153,11 @@ class Inpainting():
 
     def patch_to_use(self):
         if not self.priority_patches:
-            if self.contour:
-                 return random.choice(list(self.contour))
+            if self.contour: return random.choice(list(self.contour))
             raise IndexError("Contour vide.")
         return max(self.priority_patches, key=self.priority_patches.get)
 
     def best_match_sample(self, p):
-        # Utilise le rayon de recherche pour la vitesse !
         return determine_closest_patch(self.target_region, self.source_patches, self.contour_patches, p, self.search_radius)
 
     def update_values(self,p,patch_q):
@@ -167,8 +174,15 @@ class Inpainting():
         
         priority = self.priority_patches[p]
         
-        # Recalcul Dynamique pour la confiance
-        data_term = calculate_dataterm(p, self.source_region, self.target_region) 
+        # On a besoin du gradient du masque ici aussi
+        grad_mask_y, grad_mask_x = np.gradient(self.target_region.astype(np.float32))
+        
+        # Recalcul rapide D(p) avec lecture dans les tableaux
+        data_term = calculate_dataterm_optimized(
+            p, 
+            grad_mask_y, grad_mask_x, 
+            self.grads_y, self.grads_x
+        )
 
         if data_term > 0:
             confidence_to_propagate = priority / data_term 
@@ -188,10 +202,17 @@ class Inpainting():
             print("Iteration : " + str(num_iter))
             self.calculate_priority()
             p = self.patch_to_use()
-            patch_p = self.contour_patches[p]
+            
+            # Sauvegarder l'état
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
             self.update_values(p,patch_q)
             filled_points, new_points = self.update_regions(p)
+            
+            # --- MISE A JOUR LOCALE DES GRADIENTS ---
+            # On met à jour les tableaux self.grads_y et self.grads_x juste autour de p
+            update_local_gradients(self.source_region, self.grads_y, self.grads_x, p, self.patch_size)
+            # ----------------------------------------
+            
             self.update_patches(p, filled_points, new_points)
             num_iter+=1
             if animate:
@@ -211,8 +232,6 @@ class Inpainting():
         ani = FuncAnimation(self.anim_fig, self.updateAnimation, frames=len(self.frames), interval=50, blit=True)
         plt.show()
     def display(self, test=0, deb=0):
-        # ... (votre code d'affichage inchangé) ...
-        # Juste pour copier coller plus vite, je le mets ici:
         img8 = (self.image * 255).astype(np.uint8)
         if img8.shape[2] == 4: img8 = img8[..., :3]
         mask8 = (self.mask * 255).astype(np.uint8)
@@ -238,8 +257,7 @@ class Inpainting():
 
 if __name__ == "__main__":
     t0 = time.time()
-    # TEST SUR LE TRIANGLE (Simple)
-    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=12, curr_im=3)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, curr_im=3)
     inpaint.inpaint()
     
     delta_t=time.time()-t0
