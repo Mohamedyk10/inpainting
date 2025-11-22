@@ -31,40 +31,45 @@ def calculate_confidence(center, confidence_values, patch_size):
 
     return total_confidence / (patch_size ** 2)
 
-def calculate_dataterm(center, grad_mask_y, grad_mask_x, precomputed_gradients):
+def calculate_dataterm(center, source_region, target_region):
     """
-    Calcule D(p) en UTILISANT les gradients précalculés.
-    Ne fait plus de calculs lourds (blur/gradient).
+    Calcule D(p) dynamiquement. 
+    C'est plus lent que le pré-calcul, mais nécessaire pour propager la structure créée.
     """
     i, j = center
     
-    # --- 1. Lecture de la Normale (n_p) ---
+    # 1. Lissage Gaussien (Dynamique : prend en compte les nouveaux pixels !)
+    sigma_lissage = 1.0 
+    # On applique le filtre sur l'état ACTUEL de la source_region
+    smoothed_region = ndimage.gaussian_filter(source_region, sigma=(sigma_lissage, sigma_lissage, 0))
+    
+    # 2. Calcul de la Normale (n_p)
+    grad_mask_y, grad_mask_x = np.gradient(target_region.astype(np.float32))
     n_p = np.array([grad_mask_y[i, j], grad_mask_x[i, j]])
     norm_n_p = np.linalg.norm(n_p)
     if norm_n_p == 0:
         return 0.0
     n_p = n_p / norm_n_p
 
-    # --- 2. Lecture du Vecteur Isophote ---
+    # 3. Calcul de l'Isophote (Sur l'image lissée ACTUELLE)
     max_grad_magnitude = 0.0 
     isophote_I_best = np.array([0.0, 0.0])
-    alpha = 1.0
+    alpha = 1.0 # Puisque image en float [0,1]
     
-    # Itération sur les gradients précalculés (R, G, B)
-    for (grad_I_y, grad_I_x) in precomputed_gradients:
+    for channel in range(smoothed_region.shape[2]):
+        I_channel = smoothed_region[:, :, channel]
+        grad_I_y, grad_I_x = np.gradient(I_channel)
         
-        # Le gradient (dx, dy) au point p
+        # Gradient au point p
         grad_I = np.array([grad_I_x[i, j], grad_I_y[i, j]])
         grad_magnitude = np.linalg.norm(grad_I)
         
         if grad_magnitude > max_grad_magnitude:
-            max_grad_magnitude = grad_magnitude
-            # Vecteur isophote (orthogonal au gradient): (-dy, dx)
-            isophote_I_best = np.array([-grad_I_y[i, j], grad_I_x[i, j]])
+             max_grad_magnitude = grad_magnitude
+             isophote_I_best = np.array([-grad_I_y[i, j], grad_I_x[i, j]]) # Orthogonal
 
-    # --- 3. Calcul de D(p) ---
+    # 4. Calcul Final
     data_term = np.abs(np.dot(isophote_I_best, n_p)) / alpha
-    
     return min(data_term, 1.0)
 
 def make_patch(center, source_region, patch_size=9):

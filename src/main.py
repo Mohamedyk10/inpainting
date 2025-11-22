@@ -318,7 +318,7 @@ if __name__ == "__main__":
     """
     #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=9, create_mask=1)
     #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='NaturalTexture.mask.webp', patch_size=9, create_mask=1)
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=3, create_mask=0)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
