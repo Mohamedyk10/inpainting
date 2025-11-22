@@ -262,13 +262,12 @@ class Inpainting():
 
 if __name__ == "__main__":
     """Ce sont les paramètres à ajuster pour l'inpainting"""
-    patch_size = 4
-    search_prop = 0.4
-    sigma_lissage = 1.0
-
+    patch_size = 7
+    search_prop = 0.35
+    sigma_lissage = 1.25
     t0 = time.time()
-    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage)
-    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, search_prop=search_prop, sigma_lissage=sigma_lissage)
+    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, search_prop=search_prop, sigma_lissage=sigma_lissage)
     inpaint.inpaint()
     
     delta_t=time.time()-t0
