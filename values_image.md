@@ -9,11 +9,17 @@ Pour notre algorithme, il y a quelques paramètres à ajuster en fonction de l'i
 ### Dog Example
 
 - Patch_size = 4
-- search radius = img \* 0.40
+- search prop = 0.40
 - sigma_lissage = 1.0
 
 ### Triangle Simple
 
-- patch_size = 7
+- patch_size = 9
 - search_prop = 0.35
 - sigma_lissage = 1.25
+
+### Entete-textures
+
+- patch_size = 9
+- search_prop = 0.35
+- sigma_lissage = 1.0

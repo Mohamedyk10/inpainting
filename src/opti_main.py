@@ -244,16 +244,14 @@ class Inpainting():
         mask8 = (self.mask * 255).astype(np.uint8)
         if mask8.ndim == 3 and mask8.shape[2] == 1: mask8 = mask8.squeeze()
         if test:
-            fig, axs = plt.subplots(1,4, figsize= (10,10))
+            if deb:
+                fig, axs = plt.subplots(1,4, figsize= (10,10))
+            else:
+                fig, axs = plt.subplots(1,3, figsize= (10,10))
             axs[0].imshow(self.image); axs[0].set_title("Original"); axs[0].axis('off')
             axs[1].imshow(self.source_region); axs[1].set_title("Our algo"); axs[1].axis('off')
             axs[2].imshow(self.mask); axs[2].set_title("Mask"); axs[2].axis('off')
-            if deb: axs[3].imshow(self.target_region)
-            else:
-                t1 = time.time()
-                inpainted = cv2.inpaint(img8, mask8, 3, cv2.INPAINT_TELEA)
-                t2 = time.time()-t1
-                axs[3].imshow(inpainted); axs[3].set_title("OpenCV"); axs[3].axis('off')
+            if deb: axs[3].imshow(self.target_region); axs[3].set_title("Target Region"); axs[3].axis("off")
             plt.tight_layout()
         else:
             plt.imshow(self.source_region)
@@ -266,12 +264,13 @@ class Inpainting():
 if __name__ == "__main__":
     """Ce sont les paramètres à ajuster pour l'inpainting"""
     create_mask = False # if True, allow to manually create a rectangular mask, the mask filename will be ignored
-    patch_size = 7
+    patch_size = 9
     search_prop = 0.35
-    sigma_lissage = 1.25
+    sigma_lissage = 1.0
     t0 = time.time()
     #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
-    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=9, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
     inpaint.inpaint()
     
     delta_t=time.time()-t0
