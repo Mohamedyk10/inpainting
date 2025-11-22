@@ -84,7 +84,7 @@ class Inpainting():
         self.source_region = self.get_source_region()
         self.contour_region = self.get_contour()
         # Contour elements (array)
-        self.contour = [(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)]
+        self.contour = {(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)}
 
         # Patches initialization
         self.source_patches = {}
@@ -128,7 +128,7 @@ class Inpainting():
         if not self.priority_patches or all(v == 0 for v in self.priority_patches.values()):
         # Cas de secours si le contour est vide (ne devrait pas arriver si le trou existe)
             if self.contour:
-                 return random.choice(self.contour)
+                 return random.choice(list(self.contour))
             raise IndexError("Contour vide, l'inpainting est terminé ou un problème est survenu.")
         
     # Sélectionne la clé (coordonnée) ayant la valeur (priorité) maximale
@@ -149,11 +149,66 @@ class Inpainting():
         self.contour_region = self.get_contour()
         self.contour = [(int(x), int(y)) for x, y in np.argwhere(self.contour_region == 1)]
         pass
+    def update_regions(self, p):
+        x, y = p
+        half = self.patch_size // 2
+        i0, i1 = x - half, x + half + 1
+        j0, j1 = y - half, y + half + 1
 
-    def update_patches(self, p):
+        # 1. Find points that will be filled
+        points_filled = set()
+        for i in range(i0, i1):
+            for j in range(j0, j1):
+                if 0 <= i < self.target_region.shape[0] and 0 <= j < self.target_region.shape[1]:
+                    # Check if this pixel was part of the hole (and thus the contour)
+                    if self.target_region[i, j] == 1:
+                        points_filled.add((i, j))
+
+        # 2. Remove filled points from the main contour set
+        self.contour.difference_update(points_filled)
+
+        # 3. Update the image and mask
+        self.target_region[i0:i1, j0:j1] = 0
+        self.source_region[i0:i1, j0:j1] = self.contour_patches[p]
+
+        # 4. Find NEW contour points locally
+        new_contour_points = set()
+        h, w = self.target_region.shape
+        i0_b = max(0, i0 - 1)
+        i1_b = min(h, i1 + 1)
+        j0_b = max(0, j0 - 1)
+        j1_b = min(w, j1 + 1)
+        
+        for i in range(i0_b, i1_b):
+            for j in range(j0_b, j1_b):
+                # If this pixel IS in the hole (target_region == 1)...
+                if self.target_region[i, j] == 1:
+                    # ...and it has at least one *known* neighbor...
+                    if np.any(self.target_region[max(0, i-1):min(h, i+2), max(0, j-1):min(w, j+2)] == 0):
+                        # ...it's a new contour point. Add it.
+                        new_contour_points.add((i, j))
+        
+        # 5. Add the new points to the main contour set
+        self.contour.update(new_contour_points)
+        
+        # 6. Return the sets of changed points for update_patches
+        return points_filled, new_contour_points
+    def update_patches(self, p, filled_points, new_points):
         """Create a patch for a pixel in the contour"""
-        half = self.patch_size//2
-        self.contour_patches = {(i, j): make_patch((i, j), self.source_region, self.patch_size) for (i, j) in self.contour if i-half >= 0 and i+half < self.image.shape[0] and j-half >= 0 and j+half < self.image.shape[1]}
+        half = self.patch_size // 2
+        h, w = self.image.shape[:2]
+
+        # 1. Remove patches for points that were just filled
+        for point in filled_points:
+            if point in self.contour_patches:
+                del self.contour_patches[point]
+        
+        # 2. Add patches for new contour points
+        for point in new_points:
+            i, j = point
+            # Ensure the patch is fully within bounds before creating it
+            if i - half >= 0 and i + half < h and j - half >= 0 and j + half < w:
+                self.contour_patches[point] = make_patch(point, self.source_region, self.patch_size)
         for i in range(max(half,p[0]-self.patch_size*3//2), min(len(self.image)-half,p[0]+self.patch_size*3//2+1)):
             for j in range(max(half,p[1]-self.patch_size*3//2), min(len(self.image[0])-half,p[1]+self.patch_size*3//2+1)):
                 target = make_patch((i,j), self.target_region, self.patch_size)
@@ -213,12 +268,19 @@ class Inpainting():
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
         while np.any(self.target_region==1) and num_iter<3000:
             print("Iteration : " + str(num_iter))
+            t0 = time.time()
             self.calculate_priority(convertBW=convertBW)
+            t1 = time.time();print(f"Calculate Priority : {t1-t0}")
             p = self.patch_to_use()
+            t0 = time.time();print(f"Patch to use : {-(t1-t0)}")
             q = self.best_match_sample(p); patch_q = self.source_patches[q]
+            t1 = time.time();print(f"Best match sample : {t1-t0}")
             self.update_values(p,patch_q, convertBW=convertBW)
-            self.update_regions(p)
-            self.update_patches(p)
+            t0 = time.time();print(f"Update values: {-(t1-t0)}")
+            filled_points, new_points = self.update_regions(p)
+            t1 = time.time();print(f"Update regions : {t1-t0}")
+            self.update_patches(p, filled_points, new_points)
+            t0 = time.time();print(f"Update patches: {-(t1-t0)}")
             num_iter+=1
             if num_iter%20 == 0:
                 print(f"Le nombre de pixels inconnus : {len(self.target_region[self.target_region==1])}")
@@ -316,10 +378,10 @@ if __name__ == "__main__":
         simple_triangle : 30, 110, 77, 158
     In order to make personal rectangular masks you need to make sure that create_mask = 1 
     """
-    #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=25, create_mask=1)
+    #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=25, create_mask=0)
     #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=6, create_mask=0)
     #inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
-    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=6, create_mask=0)
+    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=9, create_mask=0)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60

@@ -77,8 +77,8 @@ def calculate_dataterm2(center, source_region, target_region):
     
     # Conversion en Noir et blanc + gaussienne
     bw_img = 0.299 * source_region[:, :, 0] + 0.587 * source_region[:, :, 1] + 0.114 * source_region[:, :, 2] #à corriger peut-être
-    bw_img = ndimage.uniform_filter(bw_img, size=3)
-    #bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
+    #bw_img = ndimage.uniform_filter(bw_img, size=3)
+    bw_img = ndimage.gaussian_filter(bw_img, sigma=0.5)
 
     # bw_img = ndimage.median_filter(bw_img, size=3) <- mieux pour le triangle mais très long
 

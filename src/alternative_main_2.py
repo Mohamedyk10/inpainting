@@ -4,7 +4,7 @@ from glob import glob
 from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
-from alternative_utils_2 import * # Assurez-vous d'avoir mis à jour ce fichier !
+from alternative_utils_2 import *
 import os
 import random
 import time
