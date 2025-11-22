@@ -4,12 +4,11 @@ from scipy import ndimage
 
 # --- 1. FONCTIONS DE GESTION DES GRADIENTS (NOUVEAU) ---
 
-def initialize_gradients(source_region):
+def initialize_gradients(source_region, sigma_lissage):
     """
     Calcule les gradients initiaux sur toute l'image.
     Retourne des listes contenant les gradients Y et X pour chaque canal.
     """
-    sigma_lissage = 1.0
     # Lissage global initial
     smoothed_region = ndimage.gaussian_filter(source_region, sigma=(sigma_lissage, sigma_lissage, 0))
     
@@ -24,7 +23,7 @@ def initialize_gradients(source_region):
         
     return grads_y, grads_x
 
-def update_local_gradients(source_region, grads_y, grads_x, p, patch_size):
+def update_local_gradients(source_region, grads_y, grads_x, p, patch_size, sigma_lissage):
     """
     Met à jour les tableaux globaux de gradients UNIQUEMENT autour du patch p.
     C'est l'optimisation clé : on ne recalcule pas tout.
@@ -44,7 +43,6 @@ def update_local_gradients(source_region, grads_y, grads_x, p, patch_size):
     sub_source = source_region[i_min:i_max, j_min:j_max, :]
     
     # Appliquer le lissage sur cette PETITE sous-région
-    sigma_lissage = 1.0
     sub_smoothed = ndimage.gaussian_filter(sub_source, sigma=(sigma_lissage, sigma_lissage, 0))
     
     # Recalculer les gradients pour chaque canal sur la sous-région
