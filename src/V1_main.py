@@ -5,7 +5,7 @@ from scipy import ndimage
 import matplotlib.pylab as plt
 from matplotlib.animation import FuncAnimation
 from alternative_utils import *
-from utils import *
+from V2_utils import *
 import os
 import random
 import time
@@ -114,12 +114,7 @@ class Inpainting():
         self.priority_patches = {} 
         for p in self.contour:
             confidence_term = calculate_confidence(p, self.confidence_values, self.patch_size)
-            if convertBW:
-                data_term = calculate_dataterm2(p, self.source_region, self.target_region) 
-            else:
-                data_term = calculate_dataterm(p, self.source_region, self.target_region)
-            
-            self.priority_patches[p] = confidence_term * data_term
+            self.priority_patches[p] = confidence_term
             
         print(f"Priorités calculées pour {len(self.priority_patches)} patches de contour.")
     def patch_to_use(self):
@@ -178,17 +173,7 @@ class Inpainting():
         
         # 2. Updating confidence values
  
-        priority = self.priority_patches[p]
-        
-        if convertBW:
-            data_term =calculate_dataterm2(p, self.source_region, self.target_region) 
-        else:
-            data_term =calculate_dataterm(p, self.source_region, self.target_region)
-
-        if data_term > 0:
-            confidence_to_propagate = priority / data_term 
-        else:
-            confidence_to_propagate = priority 
+        confidence_to_propagate = self.priority_patches[p]
             
         for i in range(i0, i1):
             for j in range(j0, j1):
@@ -198,16 +183,9 @@ class Inpainting():
 
     """Main Function"""
     def inpaint(self, animate = True, convertBW=True):
-        """runs the exemplar-based inpainting algorithm
+        """runs the exemplar-based inpainting algorithm without dataterm
 
-            - **animate** = True : allows us to see the animation of the filling process
-
-            - **convertBW** select the calculating dataterm method.
-
-                - If convertBW=True : We convert the image in BW before calculating gradients.
-
-                - Otherwise : We use the three RGB canals and select the maximum isotope. (way slower and doesn't give too much better results than the first) 
-                """
+            - **animate** = True : allows us to see the animation of the filling process"""
         if animate:
             self.generateAnimation()
         num_iter = 0 # Juste pour le débuggage, à retirer ensuite
@@ -309,6 +287,7 @@ class Inpainting():
         plt.imsave("output/"+image_name, self.source_region)
 
 if __name__ == "__main__":
+    """Version 1 de l'algorithme"""
     t0 = time.time()
     """Some suggestions of mask shapes if you want to create ones :
         8.original.webp : 172, 241, 239, 365
@@ -317,9 +296,9 @@ if __name__ == "__main__":
     In order to make personal rectangular masks you need to make sure that create_mask = 1 
     """
     #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=25, create_mask=1)
-    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=6, create_mask=0)
+    inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=6, create_mask=0)
     #inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
-    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=6, create_mask=0)
+    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=6, create_mask=0)
     inpaint.inpaint()
     delta_t=time.time()-t0
     min = delta_t//60
