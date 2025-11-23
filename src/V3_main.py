@@ -264,15 +264,15 @@ class Inpainting():
 if __name__ == "__main__":
     """Ce sont les paramètres à ajuster pour l'inpainting"""
     create_mask = False # if True, allow to manually create a rectangular mask, the mask filename will be ignored
-    patch_size = 4
-    search_prop = 0.40
-    sigma_lissage = 1.0
-    t0 = time.time()
-    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
-    #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    patch_size = 5
+    search_prop = 0.25
+    sigma_lissage = 0.7
+    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
     #inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
 
     inpaint.display() # Montrer l'image masquée
+    t0 = time.time()
 
     inpaint.inpaint()
     
