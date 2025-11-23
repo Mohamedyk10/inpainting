@@ -296,7 +296,7 @@ if __name__ == "__main__":
     In order to make personal rectangular masks you need to make sure that create_mask = 1 
     """
     #inpaint = Inpainting(image_filename='8.original.webp', mask_filename='8.mask.webp', patch_size=25, create_mask=1)
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
+    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=0)
     #inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=6, create_mask=1)
     #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=6, create_mask=0)
     inpaint.inpaint()
