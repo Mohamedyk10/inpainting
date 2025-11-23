@@ -254,7 +254,7 @@ class Inpainting():
             if deb: axs[3].imshow(self.target_region); axs[3].set_title("Target Region"); axs[3].axis("off")
             plt.tight_layout()
         else:
-            plt.imshow(self.source_region)
+            plt.imshow(self.source_region); plt.axis("off")
         plt.show()
 
     def save_image(self):
@@ -264,13 +264,16 @@ class Inpainting():
 if __name__ == "__main__":
     """Ce sont les paramètres à ajuster pour l'inpainting"""
     create_mask = False # if True, allow to manually create a rectangular mask, the mask filename will be ignored
-    patch_size = 9
-    search_prop = 0.35
+    patch_size = 4
+    search_prop = 0.40
     sigma_lissage = 1.0
     t0 = time.time()
-    #inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    inpaint = Inpainting(image_filename='dog_example.png', mask_filename='dog_example.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
     #inpaint = Inpainting(image_filename='simple_triangle.png', mask_filename='simple-triangle.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
-    inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+    #inpaint = Inpainting(image_filename='entete-textures.jpg', mask_filename='entete-textures.mask.webp', patch_size=patch_size, search_prop=search_prop, sigma_lissage=sigma_lissage, create_mask=create_mask)
+
+    inpaint.display() # Montrer l'image masquée
+
     inpaint.inpaint()
     
     delta_t=time.time()-t0
